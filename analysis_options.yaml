@@ -1,0 +1,24 @@
+include: package:very_good_analysis/analysis_options.yaml
+
+analyzer:
+  exclude:
+    - "**/*.g.dart"
+    - "**/*.freezed.dart"
+    # Functional classes vendored verbatim from the sibling SimplyNet app
+    # (github.com/igrowing/SimplyNet). They are linted/tested in that repo;
+    # re-linting them here under stricter rules would only create churn.
+    - "lib/features/diagnostics/data/datasources/vendor/**"
+
+linter:
+  rules:
+    # The project targets Android/iOS only; public API docs on every member
+    # add noise without value for an application (not a package).
+    public_member_api_docs: false
+    # Private fields injected via named/required constructor params cannot use
+    # initializing formals (named params may not start with '_'), so this rule
+    # produces false positives for our DI-friendly constructors.
+    prefer_initializing_formals: false
+    # We keep the conventional `flutter:` SDK dependency first, which this
+    # rule (it sorts strictly A–Z and does not special-case the SDK entry)
+    # would otherwise reject. All other deps are kept alphabetical by hand.
+    sort_pub_dependencies: false
