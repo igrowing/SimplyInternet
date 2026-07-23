@@ -82,8 +82,8 @@ class VerdictCatalog {
       ),
       solution: const Solution(
         message:
-            'Restart your router: unplug it, wait 10 seconds, plug it '
-            'back in, and wait about a minute for it to start up. Then run '
+            'Restart your router: unplug it, wait 30 seconds, plug it '
+            'back in, and let it about 2-5 minutes to start up. Then run '
             'the test again.',
         actions: [
           SolutionAction(type: SolutionActionType.retry, label: 'Test again'),
@@ -131,8 +131,11 @@ class VerdictCatalog {
       ),
       solution: const Solution(
         message:
-            'Restart your router once in case it needs to re-establish '
-            'the ISP link. If it still fails after a couple of minutes, '
+            '1. Check whether your router is connected to the wall phone/DSL socket.\n'
+            '2. Check the cable is not damaged or loose.\n'
+            '3. If you have a landline phone, pick up the handset and listen for the dial tone. '
+            'If you hear no dial tone, contact your phone company and/or Internet provider to fix your line.\n'
+            '4. Restart your router once to re-establish the ISP link. If the test still fails after 2-5 minutes, '
             'contact your Internet provider — the outage is on their side.',
         actions: [
           SolutionAction(type: SolutionActionType.retry, label: 'Test again'),
@@ -183,9 +186,9 @@ class VerdictCatalog {
       ),
       solution: Solution(
         message:
-            'If this is a managed network (work, school, public Wi-Fi), '
+            'If you connected now to a managed network (work, school, public Wi-Fi), '
             'port ${blocked.port} is blocked by policy — use a different '
-            'network or a VPN. On your own network, check the firewall rules '
+            'network, or mobile data (not WiFi), or a VPN. On your own network, check the firewall rules '
             'in your router settings.',
         actions: const [
           SolutionAction(type: SolutionActionType.retry, label: 'Test again'),
@@ -210,7 +213,7 @@ class VerdictCatalog {
       ),
       solution: const Solution(
         message:
-            'Try again at a different time, on a different network, or '
+            'Try again at a different time, on a different network, or using mobile data (not WiFi), or '
             'over a VPN to see if the speed recovers. If only certain apps '
             'are slow, your provider may be shaping that type of traffic — '
             'contact them to confirm your plan speed.',
@@ -237,7 +240,7 @@ class VerdictCatalog {
       ),
       solution: const Solution(
         message:
-            'There is nothing to fix on your device. Report the failing '
+            'There is nothing to fix on your device and in your network. Report the failing '
             'route to your Internet provider (mention that traceroute stops '
             'partway). It usually clears once they fix the route.',
         actions: [
