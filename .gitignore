@@ -5,10 +5,13 @@
 *.swp
 .DS_Store
 .atom/
+.claude/
 .buildlog/
 .history
 .svn/
 migrate_working_dir/
+*.jks
+*.bak
 
 # IntelliJ related
 *.iml
@@ -42,3 +45,4 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+android/key.properties
