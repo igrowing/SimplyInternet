@@ -12,6 +12,7 @@
 migrate_working_dir/
 *.jks
 *.bak
+keystore_base64.txt
 
 # IntelliJ related
 *.iml
