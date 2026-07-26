@@ -7,8 +7,15 @@ import 'package:simply_internet/core/theme/theme_controller.dart';
 import 'package:simply_internet/features/diagnostics/domain/usecases/run_diagnosis.dart';
 import 'package:simply_internet/features/diagnostics/presentation/controllers/diagnosis_controller.dart';
 import 'package:simply_internet/features/diagnostics/presentation/pages/home_page.dart';
+import 'package:simply_internet/features/urlcheck/domain/usecases/check_url.dart';
+import 'package:simply_internet/features/urlcheck/presentation/controllers/url_check_controller.dart';
 
 import 'fakes.dart';
+
+UrlCheckController _urlController() => UrlCheckController(
+  checkUrl: CheckUrl(FakeUrlInspector()),
+  deviceActions: FakeDeviceActions(),
+);
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -43,6 +50,9 @@ void main() {
             ChangeNotifierProvider<DiagnosisController>.value(
               value: controller,
             ),
+            ChangeNotifierProvider<UrlCheckController>.value(
+              value: _urlController(),
+            ),
           ],
           child: const HomePage(),
         ),
@@ -68,6 +78,9 @@ void main() {
         providers: [
           ChangeNotifierProvider<ThemeController>.value(value: themeController),
           ChangeNotifierProvider<DiagnosisController>.value(value: controller),
+          ChangeNotifierProvider<UrlCheckController>.value(
+            value: _urlController(),
+          ),
         ],
         child: Consumer<ThemeController>(
           builder: (context, theme, _) => MaterialApp(
@@ -93,5 +106,50 @@ void main() {
     await tester.tap(find.byIcon(Icons.light_mode));
     await tester.pumpAndSettle();
     expect(themeController.mode, ThemeMode.light);
+  });
+
+  testWidgets('URL check group runs and shows a result', (tester) async {
+    final prefs = await SharedPreferences.getInstance();
+    final urlController = UrlCheckController(
+      checkUrl: CheckUrl(FakeUrlInspector()),
+      deviceActions: FakeDeviceActions(),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MultiProvider(
+          providers: [
+            ChangeNotifierProvider<ThemeController>.value(
+              value: ThemeController(prefs),
+            ),
+            ChangeNotifierProvider<DiagnosisController>.value(
+              value: DiagnosisController(
+                runDiagnosis: RunDiagnosis(FakeNetworkProbe()),
+                deviceActions: FakeDeviceActions(),
+              ),
+            ),
+            ChangeNotifierProvider<UrlCheckController>.value(
+              value: urlController,
+            ),
+          ],
+          child: const HomePage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.textContaining('Not working particular website'),
+      findsOneWidget,
+    );
+    await tester.enterText(find.byType(TextField), 'example.com');
+    await tester.tap(find.text('Check it'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('The website works'), findsOneWidget);
+
+    await tester.tap(find.text('Check another'));
+    await tester.pumpAndSettle();
+    expect(find.text('Check it'), findsOneWidget);
   });
 }

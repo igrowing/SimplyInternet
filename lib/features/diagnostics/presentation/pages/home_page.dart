@@ -4,9 +4,12 @@ import 'package:provider/provider.dart';
 import 'package:simply_internet/core/theme/theme_controller.dart';
 import 'package:simply_internet/features/diagnostics/presentation/controllers/diagnosis_controller.dart';
 import 'package:simply_internet/features/diagnostics/presentation/widgets/result_view.dart';
+import 'package:simply_internet/features/urlcheck/presentation/controllers/url_check_controller.dart';
+import 'package:simply_internet/features/urlcheck/presentation/widgets/url_check_result_view.dart';
 
-/// The single-screen entry point: a short prompt and one big button. Depending
-/// on the controller state it swaps in a progress view or the result view.
+/// The single-screen entry point. It offers two functions — a full connection
+/// diagnosis and a single-URL check — and swaps in the relevant progress or
+/// result view while either one is running.
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
@@ -19,99 +22,236 @@ class HomePage extends StatelessWidget {
         actions: const [_ThemeToggleButton()],
       ),
       body: SafeArea(
-        child: Consumer<DiagnosisController>(
-          builder: (context, controller, _) {
-            switch (controller.status) {
-              case DiagnosisStatus.running:
-                return const _RunningView();
-              case DiagnosisStatus.done:
-                return ResultView(
-                  report: controller.report!,
-                  controller: controller,
-                );
-              case DiagnosisStatus.error:
-                return _ErrorView(
-                  message: controller.error ?? 'Unknown error',
-                  onRetry: controller.run,
-                );
-              case DiagnosisStatus.idle:
-                return _IdleView(onStart: controller.run);
+        child: Consumer2<DiagnosisController, UrlCheckController>(
+          builder: (context, diag, url, _) {
+            if (diag.status != DiagnosisStatus.idle) {
+              return _diagnosisBody(diag);
             }
+            if (url.status != UrlCheckStatus.idle) {
+              return _urlBody(url);
+            }
+            return _IdleView(diag: diag, url: url);
           },
+        ),
+      ),
+    );
+  }
+
+  Widget _diagnosisBody(DiagnosisController controller) {
+    switch (controller.status) {
+      case DiagnosisStatus.running:
+        return const _RunningView(message: 'Running comprehensive check…');
+      case DiagnosisStatus.done:
+        return ResultView(report: controller.report!, controller: controller);
+      case DiagnosisStatus.error:
+        return _ErrorView(
+          message: controller.error ?? 'Unknown error',
+          onRetry: controller.run,
+        );
+      case DiagnosisStatus.idle:
+        return const SizedBox.shrink();
+    }
+  }
+
+  Widget _urlBody(UrlCheckController controller) {
+    switch (controller.status) {
+      case UrlCheckStatus.running:
+        return const _RunningView(message: 'Checking the website…');
+      case UrlCheckStatus.done:
+        return UrlCheckResultView(
+          report: controller.report!,
+          controller: controller,
+        );
+      case UrlCheckStatus.error:
+        return _ErrorView(
+          message: controller.error ?? 'Unknown error',
+          onRetry: controller.reset,
+          retryLabel: 'Back',
+        );
+      case UrlCheckStatus.idle:
+        return const SizedBox.shrink();
+    }
+  }
+}
+
+/// The idle screen: two function groups. In portrait they are stacked and
+/// centred vertically; in landscape each group is centred vertically within
+/// its own column and the two columns sit side by side.
+class _IdleView extends StatefulWidget {
+  const _IdleView({required this.diag, required this.url});
+
+  final DiagnosisController diag;
+  final UrlCheckController url;
+
+  @override
+  State<_IdleView> createState() => _IdleViewState();
+}
+
+class _IdleViewState extends State<_IdleView> {
+  final TextEditingController _urlField = TextEditingController();
+
+  @override
+  void dispose() {
+    _urlField.dispose();
+    super.dispose();
+  }
+
+  void _submitUrl() {
+    final text = _urlField.text.trim();
+    if (text.isEmpty) return;
+    FocusScope.of(context).unfocus();
+    widget.url.check(text);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final landscape = constraints.maxWidth > constraints.maxHeight;
+        final diagnose = _DiagnoseGroup(
+          landscape: landscape,
+          onStart: widget.diag.run,
+        );
+        final checkUrl = _UrlCheckGroup(
+          controller: _urlField,
+          onSubmit: _submitUrl,
+        );
+
+        if (landscape) {
+          return Row(
+            children: [
+              Expanded(child: _centered(constraints, diagnose)),
+              const VerticalDivider(width: 1),
+              Expanded(child: _centered(constraints, checkUrl)),
+            ],
+          );
+        }
+        return _centered(
+          constraints,
+          Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              diagnose,
+              const SizedBox(height: 40),
+              const Divider(),
+              const SizedBox(height: 24),
+              checkUrl,
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _centered(BoxConstraints constraints, Widget child) {
+    return SingleChildScrollView(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(minHeight: constraints.maxHeight),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 480),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              child: child,
+            ),
+          ),
         ),
       ),
     );
   }
 }
 
-class _IdleView extends StatelessWidget {
-  const _IdleView({required this.onStart});
+/// The full-diagnosis function: prompt above, big button below.
+class _DiagnoseGroup extends StatelessWidget {
+  const _DiagnoseGroup({required this.landscape, required this.onStart});
 
+  final bool landscape;
   final VoidCallback onStart;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final wide = constraints.maxWidth > 600;
-        final landscape = constraints.maxWidth > constraints.maxHeight;
-        // Shrink the decorative icon in short (landscape) viewports so the
-        // prompt and the button both stay on screen.
-        final iconSize = landscape ? 64.0 : (wide ? 120.0 : 96.0);
-        // Keep the prompt a little above the vertical middle and the button a
-        // little below it, while staying centred as a block.
-        final gap = landscape ? 28.0 : 48.0;
-        return SingleChildScrollView(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: constraints.maxHeight),
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 520),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 16,
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.wifi_find,
-                        size: iconSize,
-                        color: theme.colorScheme.primary,
-                      ),
-                      const SizedBox(height: 20),
-                      Text(
-                        'Internet does not work?\nInstable? Works partially?',
-                        textAlign: TextAlign.center,
-                        style: theme.textTheme.titleLarge,
-                      ),
-                      SizedBox(height: gap),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 72,
-                        child: FilledButton.icon(
-                          onPressed: onStart,
-                          icon: const Icon(Icons.search, size: 28),
-                          label: const Text(
-                            'Find the problem and give solution',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+    final iconSize = landscape ? 56.0 : 96.0;
+    final gap = landscape ? 24.0 : 40.0;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(Icons.wifi_find, size: iconSize, color: theme.colorScheme.primary),
+        const SizedBox(height: 16),
+        Text(
+          'Internet does not work?\nInstable? Works partially?',
+          textAlign: TextAlign.center,
+          style: theme.textTheme.titleLarge,
+        ),
+        SizedBox(height: gap),
+        SizedBox(
+          width: double.infinity,
+          height: 72,
+          child: FilledButton.icon(
+            onPressed: onStart,
+            icon: const Icon(Icons.search, size: 28),
+            label: const Text(
+              'Find the problem and give solution',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
           ),
-        );
-      },
+        ),
+      ],
+    );
+  }
+}
+
+/// The single-URL check function: label, URL field, "Check it" button.
+class _UrlCheckGroup extends StatelessWidget {
+  const _UrlCheckGroup({required this.controller, required this.onSubmit});
+
+  final TextEditingController controller;
+  final VoidCallback onSubmit;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(Icons.link, size: 56, color: theme.colorScheme.primary),
+        const SizedBox(height: 16),
+        Text(
+          'Not working particular website or service?\n'
+          'Paste its link (URL) here:',
+          textAlign: TextAlign.center,
+          style: theme.textTheme.titleMedium,
+        ),
+        const SizedBox(height: 16),
+        TextField(
+          controller: controller,
+          keyboardType: TextInputType.url,
+          textInputAction: TextInputAction.go,
+          autocorrect: false,
+          onSubmitted: (_) => onSubmit(),
+          decoration: const InputDecoration(
+            hintText: 'example.com or https://example.com/page',
+            prefixIcon: Icon(Icons.public),
+            border: OutlineInputBorder(),
+          ),
+        ),
+        const SizedBox(height: 16),
+        SizedBox(
+          width: double.infinity,
+          height: 56,
+          child: FilledButton.icon(
+            onPressed: onSubmit,
+            icon: const Icon(Icons.travel_explore),
+            label: const Text(
+              'Check it',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -172,7 +312,9 @@ class _ThemeToggleButton extends StatelessWidget {
 }
 
 class _RunningView extends StatelessWidget {
-  const _RunningView();
+  const _RunningView({required this.message});
+
+  final String message;
 
   @override
   Widget build(BuildContext context) {
@@ -186,7 +328,7 @@ class _RunningView extends StatelessWidget {
             const CircularProgressIndicator(),
             const SizedBox(height: 28),
             Text(
-              'Running comprehensive check…',
+              message,
               textAlign: TextAlign.center,
               style: theme.textTheme.titleMedium,
             ),
@@ -198,10 +340,15 @@ class _RunningView extends StatelessWidget {
 }
 
 class _ErrorView extends StatelessWidget {
-  const _ErrorView({required this.message, required this.onRetry});
+  const _ErrorView({
+    required this.message,
+    required this.onRetry,
+    this.retryLabel = 'Try again',
+  });
 
   final String message;
   final VoidCallback onRetry;
+  final String retryLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -225,7 +372,7 @@ class _ErrorView extends StatelessWidget {
             FilledButton.icon(
               onPressed: onRetry,
               icon: const Icon(Icons.refresh),
-              label: const Text('Try again'),
+              label: Text(retryLabel),
             ),
           ],
         ),

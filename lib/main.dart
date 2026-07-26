@@ -5,6 +5,7 @@ import 'package:simply_internet/core/di/injection.dart';
 import 'package:simply_internet/core/theme/theme_controller.dart';
 import 'package:simply_internet/features/diagnostics/presentation/controllers/diagnosis_controller.dart';
 import 'package:simply_internet/features/diagnostics/presentation/pages/home_page.dart';
+import 'package:simply_internet/features/urlcheck/presentation/controllers/url_check_controller.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -32,8 +33,15 @@ class SimplyInternetApp extends StatelessWidget {
               brightness: Brightness.dark,
               useMaterial3: true,
             ),
-            home: ChangeNotifierProvider<DiagnosisController>(
-              create: (_) => sl<DiagnosisController>(),
+            home: MultiProvider(
+              providers: [
+                ChangeNotifierProvider<DiagnosisController>(
+                  create: (_) => sl<DiagnosisController>(),
+                ),
+                ChangeNotifierProvider<UrlCheckController>(
+                  create: (_) => sl<UrlCheckController>(),
+                ),
+              ],
               child: const HomePage(),
             ),
           );

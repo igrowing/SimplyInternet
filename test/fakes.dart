@@ -1,6 +1,8 @@
 import 'package:simply_internet/features/diagnostics/domain/entities/network_facts.dart';
 import 'package:simply_internet/features/diagnostics/domain/repositories/device_actions.dart';
 import 'package:simply_internet/features/diagnostics/domain/repositories/network_probe.dart';
+import 'package:simply_internet/features/urlcheck/domain/entities/url_facts.dart';
+import 'package:simply_internet/features/urlcheck/domain/repositories/url_inspector.dart';
 
 /// A fully scriptable [NetworkProbe] for driving the diagnosis decision tree
 /// through every branch without touching the network.
@@ -101,4 +103,43 @@ class FakeDeviceActions implements DeviceActions {
     lastUrl = url;
     return true;
   }
+}
+
+/// Scriptable [UrlInspector] returning canned facts for the URL-check flow.
+class FakeUrlInspector implements UrlInspector {
+  FakeUrlInspector({
+    HttpFetchResult? fetchResult,
+    this.dns = true,
+    this.domain = const DomainInfo(checked: true, exists: true),
+    this.tls = const TlsInfo(checked: true, valid: true),
+    this.ports = const [],
+    this.regions = const RegionReport.unavailable(),
+  }) : fetchResult =
+           fetchResult ?? const HttpFetchResult(reached: true, statusCode: 200);
+
+  final HttpFetchResult fetchResult;
+  final bool dns;
+  final DomainInfo domain;
+  final TlsInfo tls;
+  final List<UrlPortResult> ports;
+  final RegionReport regions;
+
+  @override
+  Future<HttpFetchResult> fetch(Uri url) async => fetchResult;
+
+  @override
+  Future<bool> dnsResolves(String host) async => dns;
+
+  @override
+  Future<DomainInfo> domainInfo(String d) async => domain;
+
+  @override
+  Future<List<UrlPortResult>> checkPorts(String host, List<int> p) async =>
+      ports;
+
+  @override
+  Future<TlsInfo> tlsInfo(String host, int port) async => tls;
+
+  @override
+  Future<RegionReport> checkFromRegions(Uri url) async => regions;
 }
