@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import 'package:simply_internet/core/theme/theme_controller.dart';
-import 'package:simply_internet/features/diagnostics/domain/usecases/run_diagnosis.dart';
 import 'package:simply_internet/features/diagnostics/presentation/controllers/diagnosis_controller.dart';
 import 'package:simply_internet/features/diagnostics/presentation/widgets/result_view.dart';
 
@@ -24,7 +23,7 @@ class HomePage extends StatelessWidget {
           builder: (context, controller, _) {
             switch (controller.status) {
               case DiagnosisStatus.running:
-                return _RunningView(phase: controller.phase);
+                return const _RunningView();
               case DiagnosisStatus.done:
                 return ResultView(
                   report: controller.report!,
@@ -173,9 +172,7 @@ class _ThemeToggleButton extends StatelessWidget {
 }
 
 class _RunningView extends StatelessWidget {
-  const _RunningView({required this.phase});
-
-  final DiagnosisPhase phase;
+  const _RunningView();
 
   @override
   Widget build(BuildContext context) {
@@ -189,7 +186,7 @@ class _RunningView extends StatelessWidget {
             const CircularProgressIndicator(),
             const SizedBox(height: 28),
             Text(
-              diagnosisPhaseLabel(phase),
+              'Running comprehensive check…',
               textAlign: TextAlign.center,
               style: theme.textTheme.titleMedium,
             ),

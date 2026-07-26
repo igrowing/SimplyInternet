@@ -12,8 +12,13 @@ class NetworkTools {
   static Stream<String> ping(String host, {int count = 10}) async* {
     yield '=== PING $host (${count}x) ===\n';
     try {
-      final proc = await Process.start(
-          'ping', ['-c', count.toString(), '-W', '2', host]);
+      final proc = await Process.start('ping', [
+        '-c',
+        count.toString(),
+        '-W',
+        '2',
+        host,
+      ]);
       yield* proc.stdout.transform(const SystemEncoding().decoder);
       yield* proc.stderr.transform(const SystemEncoding().decoder);
       await proc.exitCode;
@@ -26,9 +31,12 @@ class NetworkTools {
   static Stream<String> _dartPing(String host, int count) async* {
     for (var i = 1; i <= count; i++) {
       try {
-        final sw   = Stopwatch()..start();
-        final sock = await Socket.connect(host, 80,
-            timeout: const Duration(seconds: 2));
+        final sw = Stopwatch()..start();
+        final sock = await Socket.connect(
+          host,
+          80,
+          timeout: const Duration(seconds: 2),
+        );
         sock.destroy();
         sw.stop();
         yield 'Reply from $host: time=${sw.elapsedMilliseconds}ms\n';
@@ -47,8 +55,8 @@ class NetworkTools {
   static final _ipRegex = RegExp(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$');
 
   static Stream<String> nslookup(String host) async* {
-    final input   = host.trim();
-    final isIp    = _ipRegex.hasMatch(input);
+    final input = host.trim();
+    final isIp = _ipRegex.hasMatch(input);
     yield '=== ${isIp ? "REVERSE " : ""}NSLOOKUP $input ===\n';
 
     if (isIp) {
@@ -56,7 +64,7 @@ class NetworkTools {
       // Method 1: dart:io PTR query (cleanest)
       bool gotResult = false;
       try {
-        final ia  = InternetAddress(input);
+        final ia = InternetAddress(input);
         final rev = await ia.reverse().timeout(const Duration(seconds: 4));
         if (rev.host.isNotEmpty && rev.host != input) {
           yield 'PTR record : ${rev.host}\n';
@@ -67,7 +75,7 @@ class NetworkTools {
       // Method 2: system nslookup (shows full PTR chain)
       try {
         final proc = await Process.start('nslookup', [input]);
-        final out  = await proc.stdout
+        final out = await proc.stdout
             .transform(const SystemEncoding().decoder)
             .join()
             .timeout(const Duration(seconds: 5));
@@ -87,8 +95,9 @@ class NetworkTools {
       // ── Forward lookup: name → IPs ───────────────────────────────────────
       // Method 1: dart:io A/AAAA lookup
       try {
-        final addrs = await InternetAddress.lookup(input)
-            .timeout(const Duration(seconds: 4));
+        final addrs = await InternetAddress.lookup(
+          input,
+        ).timeout(const Duration(seconds: 4));
         for (final a in addrs) {
           yield '${a.type == InternetAddressType.IPv6 ? "AAAA" : "A   "} : ${a.address}\n';
         }
@@ -99,7 +108,7 @@ class NetworkTools {
       // Method 2: system nslookup for full answer (TTL, authoritative server)
       try {
         final proc = await Process.start('nslookup', [input]);
-        final out  = await proc.stdout
+        final out = await proc.stdout
             .transform(const SystemEncoding().decoder)
             .join()
             .timeout(const Duration(seconds: 5));
@@ -108,7 +117,10 @@ class NetworkTools {
         bool inAnswer = false;
         for (final line in out.split('\n')) {
           final t = line.trim();
-          if (t.isEmpty) { inAnswer = true; continue; }
+          if (t.isEmpty) {
+            inAnswer = true;
+            continue;
+          }
           if (inAnswer && t.isNotEmpty) yield '$t\n';
         }
       } catch (_) {}
@@ -148,8 +160,9 @@ class NetworkTools {
     // Resolve destination once so we can detect arrival
     String destIp = host;
     try {
-      final addrs = await InternetAddress.lookup(host)
-          .timeout(const Duration(seconds: 4));
+      final addrs = await InternetAddress.lookup(
+        host,
+      ).timeout(const Duration(seconds: 4));
       destIp = addrs.first.address;
       if (destIp != host) yield 'Resolved: $host → $destIp\n';
     } catch (e) {
@@ -171,7 +184,8 @@ class NetworkTools {
 
       try {
         final result = await Process.run(
-          'ping', ['-c', '3', '-t', ttl.toString(), '-W', '2', destIp],
+          'ping',
+          ['-c', '3', '-t', ttl.toString(), '-W', '2', destIp],
           runInShell: false,
         ).timeout(const Duration(seconds: 9)); // 3 packets × 2s + buffer
 
@@ -190,9 +204,9 @@ class NetworkTools {
       String label = hopIp ?? '*';
       if (hopIp != null) {
         try {
-          final rev = await InternetAddress(hopIp)
-              .reverse()
-              .timeout(const Duration(seconds: 1));
+          final rev = await InternetAddress(
+            hopIp,
+          ).reverse().timeout(const Duration(seconds: 1));
           if (rev.host != hopIp) label = '${rev.host} ($hopIp)';
         } catch (_) {}
       }
@@ -218,12 +232,15 @@ class NetworkTools {
   /// [TracertHop] per TTL as it is probed (reverse-DNS resolved). Completes
   /// after the destination is reached or [maxHops] is hit; throws
   /// [TracerouteException] when the host cannot be resolved.
-  static Stream<TracertHop> tracerouteHops(String host,
-      {int maxHops = 30}) async* {
+  static Stream<TracertHop> tracerouteHops(
+    String host, {
+    int maxHops = 30,
+  }) async* {
     String destIp;
     try {
-      final addrs = await InternetAddress.lookup(host)
-          .timeout(const Duration(seconds: 4));
+      final addrs = await InternetAddress.lookup(
+        host,
+      ).timeout(const Duration(seconds: 4));
       destIp = addrs.first.address;
     } catch (e) {
       throw TracerouteException('DNS resolution failed: $e');
@@ -242,13 +259,20 @@ class NetworkTools {
       for (var probe = 0; probe < 3; probe++) {
         final sw = Stopwatch()..start();
         try {
-          final result = await Process.run(
-            'ping', ['-c', '1', '-t', ttl.toString(), '-W', '2', destIp],
-            runInShell: false,
-          ).timeout(const Duration(seconds: 4));
+          final result = await Process.run('ping', [
+            '-c',
+            '1',
+            '-t',
+            ttl.toString(),
+            '-W',
+            '2',
+            destIp,
+          ], runInShell: false).timeout(const Duration(seconds: 4));
           sw.stop();
-          final hop =
-              parseTracerouteHop('${result.stdout}${result.stderr}', destIp);
+          final hop = parseTracerouteHop(
+            '${result.stdout}${result.stderr}',
+            destIp,
+          );
           if (hop.hopIp == null) continue; // no reply to this probe
           hopIp ??= hop.hopIp;
           reached = reached || hop.reached;
@@ -266,20 +290,20 @@ class NetworkTools {
       String? hostname;
       if (hopIp != null) {
         try {
-          final rev = await InternetAddress(hopIp)
-              .reverse()
-              .timeout(const Duration(seconds: 1));
+          final rev = await InternetAddress(
+            hopIp,
+          ).reverse().timeout(const Duration(seconds: 1));
           if (rev.host != hopIp) hostname = rev.host;
         } catch (_) {}
       }
 
       reached = reached || hopIp == destIp;
       yield TracertHop(
-        hop:      ttl,
-        ip:       hopIp,
+        hop: ttl,
+        ip: hopIp,
         hostname: hostname,
-        rttsMs:   rtts,
-        reached:  reached,
+        rttsMs: rtts,
+        reached: reached,
       );
       if (reached) return;
     }
@@ -292,7 +316,9 @@ class NetworkTools {
   /// line-parsing branches can be tested directly.
   @visibleForTesting
   static ({String? hopIp, List<String> times, bool reached}) parseTracerouteHop(
-      String output, String destIp) {
+    String output,
+    String destIp,
+  ) {
     final fromRe = RegExp(r'From ([\d.]+)[: ]');
     final timeRe = RegExp(r'time=([\d.]+)\s*ms');
     final byteRe = RegExp(r'bytes from ([\d.]+):');
@@ -305,17 +331,19 @@ class NetworkTools {
       // Arrived at destination
       final byteMatch = byteRe.firstMatch(line);
       if (byteMatch != null) {
-        hopIp   = byteMatch.group(1)!;
+        hopIp = byteMatch.group(1)!;
         reached = (hopIp == destIp);
         final t = timeRe.firstMatch(line);
-        if (t != null) hopTimes.add('${double.parse(t.group(1)!).toStringAsFixed(1)}ms');
+        if (t != null)
+          hopTimes.add('${double.parse(t.group(1)!).toStringAsFixed(1)}ms');
       }
       // Time Exceeded from intermediate router
       final fromMatch = fromRe.firstMatch(line);
       if (fromMatch != null && hopIp == null) {
         hopIp = fromMatch.group(1)!;
         final t = timeRe.firstMatch(line);
-        if (t != null) hopTimes.add('${double.parse(t.group(1)!).toStringAsFixed(1)}ms');
+        if (t != null)
+          hopTimes.add('${double.parse(t.group(1)!).toStringAsFixed(1)}ms');
       }
     }
 
@@ -351,15 +379,15 @@ class NetworkTools {
     // Resolve hostname to IP once (needed for UDP RawDatagramSocket)
     String resolvedIp = host;
     try {
-      final addrs = await InternetAddress.lookup(host)
-          .timeout(const Duration(seconds: 4));
+      final addrs = await InternetAddress.lookup(
+        host,
+      ).timeout(const Duration(seconds: 4));
       resolvedIp = addrs.first.address;
     } catch (_) {}
 
-    final scanPorts = ports ?? List.generate(
-      rangeEnd - rangeStart + 1,
-      (i) => rangeStart + i,
-    );
+    final scanPorts =
+        ports ??
+        List.generate(rangeEnd - rangeStart + 1, (i) => rangeStart + i);
     yield '=== PORT SCAN $host'
         ' [${useTcp ? "TCP" : ""}${useTcp && useUdp ? "+" : ""}${useUdp ? "UDP" : ""}]'
         ' ports ${scanPorts.first}–${scanPorts.last} (${scanPorts.length} ports) ===\n';
@@ -389,15 +417,21 @@ class NetworkTools {
       if (useTcp) {
         sem.run(() async {
           try {
-            final sock = await Socket.connect(resolvedIp, port,
-                timeout: const Duration(milliseconds: 600));
+            final sock = await Socket.connect(
+              resolvedIp,
+              port,
+              timeout: const Duration(milliseconds: 600),
+            );
             sock.destroy();
             final name = wellKnownPortNames[port] ?? '';
             controller.add('OPEN  $port/tcp  $name\n');
             openPorts.add(port);
           } catch (_) {}
           done++;
-          onProgress?.call(done ~/ (useTcp && useUdp ? 2 : 1), scanPorts.length);
+          onProgress?.call(
+            done ~/ (useTcp && useUdp ? 2 : 1),
+            scanPorts.length,
+          );
           finish();
         });
       }
@@ -413,14 +447,31 @@ class NetworkTools {
           //    because the kernel may suppress ICMP errors to non-root sockets.
           try {
             final udp = await RawDatagramSocket.bind(
-                InternetAddress.anyIPv4, 0,
-                reuseAddress: true);
+              InternetAddress.anyIPv4,
+              0,
+              reuseAddress: true,
+            );
             udp.readEventsEnabled = true;
             // Send a probe: DNS query for UDP 53, otherwise empty
             final probe = port == 53
                 ? Uint8List.fromList([
-                    0x00, 0x01, 0x01, 0x00, 0x00, 0x01, 0x00, 0x00,
-                    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x01
+                    0x00,
+                    0x01,
+                    0x01,
+                    0x00,
+                    0x00,
+                    0x01,
+                    0x00,
+                    0x00,
+                    0x00,
+                    0x00,
+                    0x00,
+                    0x00,
+                    0x00,
+                    0x00,
+                    0x01,
+                    0x00,
+                    0x01,
                   ])
                 : Uint8List(4); // 4-zero bytes — enough to trigger a reply
             udp.send(probe, InternetAddress(resolvedIp), port);
@@ -438,7 +489,9 @@ class NetworkTools {
               }
             } catch (_) {}
             timer.cancel();
-            try { udp.close(); } catch (_) {}
+            try {
+              udp.close();
+            } catch (_) {}
 
             if (gotReply) {
               final name = wellKnownPortNames[port] ?? '';
@@ -447,7 +500,10 @@ class NetworkTools {
             }
           } catch (_) {}
           done++;
-          onProgress?.call(done ~/ (useTcp && useUdp ? 2 : 1), scanPorts.length);
+          onProgress?.call(
+            done ~/ (useTcp && useUdp ? 2 : 1),
+            scanPorts.length,
+          );
           finish();
         });
       }
@@ -488,11 +544,11 @@ class _Semaphore {
 
 /// One hop in a structured traceroute, consumed by the timeline UI.
 class TracertHop {
-  final int hop;             // TTL / hop number (1-based)
-  final String? ip;          // replying router IP; null when nothing answered
-  final String? hostname;    // reverse-DNS name, null when unavailable
+  final int hop; // TTL / hop number (1-based)
+  final String? ip; // replying router IP; null when nothing answered
+  final String? hostname; // reverse-DNS name, null when unavailable
   final List<double> rttsMs; // RTTs (ms) of the probes that replied
-  final bool reached;        // true when this hop is the destination
+  final bool reached; // true when this hop is the destination
 
   const TracertHop({
     required this.hop,
@@ -517,4 +573,3 @@ class TracerouteException implements Exception {
   @override
   String toString() => message;
 }
-

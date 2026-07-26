@@ -91,11 +91,11 @@ class OoklaSpeedTest {
 
     // Stores successful pings
     final results = <({OoklaServer server, double pingMs})>[];
-    
+
     // Shared state across all workers
     int currentIndex = 0;
     bool foundFastEnough = false;
-    
+
     // The Completer allows us to return instantly when our condition is met
     final completer = Completer<({OoklaServer server, double pingMs})>();
 
@@ -113,7 +113,7 @@ class OoklaSpeedTest {
               .get(s.downloadUri(1), headers: headers)
               .timeout(const Duration(seconds: 4));
           sw.stop();
-          
+
           if (r.statusCode == 200) {
             final ping = sw.elapsedMilliseconds.toDouble();
             final result = (server: s, pingMs: ping);
@@ -136,7 +136,7 @@ class OoklaSpeedTest {
     // Spawn up to 16 concurrent workers
     final int threadCount = servers.length < 16 ? servers.length : 16;
     final workers = List.generate(threadCount, (_) => worker());
-    
+
     // When all workers finish naturally (if no server was < 7ms)
     Future.wait(workers).then((_) {
       if (!completer.isCompleted) {
@@ -144,14 +144,16 @@ class OoklaSpeedTest {
           completer.completeError(Exception('No reachable Ookla server'));
         } else {
           // Compare all successful pings and return the absolute lowest
-          completer.complete(results.reduce((current, next) => 
-              current.pingMs < next.pingMs ? current : next
-          ));
+          completer.complete(
+            results.reduce(
+              (current, next) => current.pingMs < next.pingMs ? current : next,
+            ),
+          );
         }
       }
     });
 
-    // This will return the moment the completer triggers, 
+    // This will return the moment the completer triggers,
     // either early (<7ms) or when all threads finish testing everything.
     return completer.future;
   }

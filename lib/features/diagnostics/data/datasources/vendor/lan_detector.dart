@@ -23,26 +23,32 @@ Future<String?> detectLanCidr() async {
 
   // ── Stage 1: network_info_plus (WiFi with real subnet mask) ───────────────
   try {
-    final info    = NetworkInfo();
-    final ip      = await info.getWifiIP();
+    final info = NetworkInfo();
+    final ip = await info.getWifiIP();
     final submask = await info.getWifiSubmask();
 
     if (ip != null && ip.isNotEmpty && submask != null && submask.isNotEmpty) {
-      final prefix  = subnetMaskToPrefix(submask);
+      final prefix = subnetMaskToPrefix(submask);
       final network = networkAddress(ip, prefix);
-      debugPrint('LAN detect [stage 1 — WiFi+mask]: $ip / $submask → $network/$prefix');
+      debugPrint(
+        'LAN detect [stage 1 — WiFi+mask]: $ip / $submask → $network/$prefix',
+      );
       return '$network/$prefix';
     }
 
     // ── Stage 2: gateway / device IP without real mask ────────────────────
     String? gatewayIp;
-    try { gatewayIp = await info.getWifiGatewayIP(); } catch (_) {}
+    try {
+      gatewayIp = await info.getWifiGatewayIP();
+    } catch (_) {}
     final sourceIp = ip ?? gatewayIp;
 
     if (sourceIp != null && sourceIp.isNotEmpty) {
-      final prefix  = inferPrefixFromAddress(sourceIp);
+      final prefix = inferPrefixFromAddress(sourceIp);
       final network = networkAddress(sourceIp, prefix);
-      debugPrint('LAN detect [stage 2 — gateway/ip]: $sourceIp → $network/$prefix');
+      debugPrint(
+        'LAN detect [stage 2 — gateway/ip]: $sourceIp → $network/$prefix',
+      );
       return '$network/$prefix';
     }
   } catch (e) {
@@ -58,10 +64,12 @@ Future<String?> detectLanCidr() async {
     for (final iface in ifaces) {
       for (final addr in iface.addresses) {
         if (!addr.isLoopback && addr.address.isNotEmpty) {
-          final prefix  = inferPrefixFromAddress(addr.address);
+          final prefix = inferPrefixFromAddress(addr.address);
           final network = networkAddress(addr.address, prefix);
-          debugPrint('LAN detect [stage 3 — NetworkInterface "${iface.name}"]: '
-              '${addr.address} → $network/$prefix');
+          debugPrint(
+            'LAN detect [stage 3 — NetworkInterface "${iface.name}"]: '
+            '${addr.address} → $network/$prefix',
+          );
           return '$network/$prefix';
         }
       }
@@ -125,7 +133,7 @@ int inferPrefixFromAddress(String ip) {
   if (parts.length != 4) return 24;
   try {
     final first = int.parse(parts[0]);
-    if (first == 10)  return 24;
+    if (first == 10) return 24;
     if (first == 172) return 24;
     if (first == 192) return 24;
   } catch (_) {}
@@ -143,15 +151,15 @@ String networkAddress(String ip, int prefix) {
     if (octets.length != 4) return ip;
     if (prefix < 0 || prefix > 32) return ip;
 
-    final ipInt = (octets[0] << 24) | (octets[1] << 16) |
-                  (octets[2] << 8)  |  octets[3];
-    final mask  = prefix == 0 ? 0 : (0xFFFFFFFF << (32 - prefix)) & 0xFFFFFFFF;
-    final net   = ipInt & mask;
+    final ipInt =
+        (octets[0] << 24) | (octets[1] << 16) | (octets[2] << 8) | octets[3];
+    final mask = prefix == 0 ? 0 : (0xFFFFFFFF << (32 - prefix)) & 0xFFFFFFFF;
+    final net = ipInt & mask;
 
     return '${(net >> 24) & 0xFF}.'
         '${(net >> 16) & 0xFF}.'
-        '${(net >> 8)  & 0xFF}.'
-        '${net         & 0xFF}';
+        '${(net >> 8) & 0xFF}.'
+        '${net & 0xFF}';
   } catch (e) {
     debugPrint('networkAddress($ip, $prefix): $e');
     return ip;
