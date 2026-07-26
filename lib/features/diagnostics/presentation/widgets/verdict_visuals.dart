@@ -16,6 +16,8 @@ class VerdictVisuals {
         return Icons.login;
       case VerdictCategory.noInternetIsp:
         return Icons.cloud_off;
+      case VerdictCategory.mobileNoData:
+        return Icons.signal_cellular_connected_no_internet_4_bar;
       case VerdictCategory.dnsProblem:
         return Icons.dns;
       case VerdictCategory.portBlocked:

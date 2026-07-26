@@ -19,6 +19,10 @@ enum VerdictCategory {
   /// The router answers but there is no reachable Internet (ISP/WAN down).
   noInternetIsp,
 
+  /// Cellular link is up but no data is getting through — typically data
+  /// roaming disabled, no data allowance, or a carrier data outage.
+  mobileNoData,
+
   /// Raw IPs are reachable but name resolution fails — fixable via DNS.
   dnsProblem,
 

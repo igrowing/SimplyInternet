@@ -76,6 +76,19 @@ void main() {
       expect(report.verdict.category, VerdictCategory.noInternetIsp);
     });
 
+    test('reports mobileNoData when a cellular link passes no data', () async {
+      final probe = FakeNetworkProbe(
+        connectivityResult: const ConnectivityStatus(
+          kind: ConnectivityKind.mobile,
+          airplaneMode: false,
+        ),
+        captiveResult: const CaptivePortalResult.noInternet(),
+        rawReachable: false,
+      );
+      final report = await RunDiagnosis(probe).call();
+      expect(report.verdict.category, VerdictCategory.mobileNoData);
+    });
+
     test(
       'reports dnsProblem even when internet 204 works but DNS fails',
       () async {

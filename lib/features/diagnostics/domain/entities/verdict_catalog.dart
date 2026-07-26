@@ -131,13 +131,49 @@ class VerdictCatalog {
       ),
       solution: const Solution(
         message:
-            '1. Check whether your router is connected to the wall phone/DSL socket.\n'
+            '1. Check whether your router is connected to the wall '
+            'phone/DSL socket.\n'
             '2. Check the cable is not damaged or loose.\n'
-            '3. If you have a landline phone, pick up the handset and listen for the dial tone. '
-            'If you hear no dial tone, contact your phone company and/or Internet provider to fix your line.\n'
-            '4. Restart your router once to re-establish the ISP link. If the test still fails after 2-5 minutes, '
-            'contact your Internet provider — the outage is on their side.',
+            '3. If you have a landline phone, pick up the handset and '
+            'listen for the dial tone. If you hear no dial tone, contact '
+            'your phone company and/or Internet provider to fix your '
+            'line.\n'
+            '4. Restart your router once to re-establish the ISP link. '
+            'If the test still fails after 2-5 minutes, contact your '
+            'Internet provider — the outage is on their side.',
         actions: [
+          SolutionAction(type: SolutionActionType.retry, label: 'Test again'),
+        ],
+      ),
+    );
+  }
+
+  static ({Verdict verdict, Solution solution}) mobileDataNoInternet() {
+    return (
+      verdict: const Verdict(
+        category: VerdictCategory.mobileNoData,
+        title: 'Mobile data is connected but not working',
+        detail:
+            'Your phone is on the cellular network, but no data is getting '
+            'through. This usually means data roaming is off, your data '
+            'allowance is used up, or your carrier has a local outage.',
+      ),
+      solution: const Solution(
+        message:
+            '1. If you are abroad or on another network, turn on data '
+            'roaming in mobile settings.\n'
+            '2. Check that you still have data allowance left on your plan.\n'
+            '3. Move to a spot with better signal, or toggle mobile data '
+            'off and on.\n'
+            '4. If it still fails, contact your mobile carrier.',
+        actions: [
+          SolutionAction(
+            type: SolutionActionType.enableMobileData,
+            label: 'Open mobile data settings',
+            confirmBeforeAct: true,
+            confirmationPrompt:
+                'Open mobile data settings to check roaming and data?',
+          ),
           SolutionAction(type: SolutionActionType.retry, label: 'Test again'),
         ],
       ),
@@ -186,10 +222,11 @@ class VerdictCatalog {
       ),
       solution: Solution(
         message:
-            'If you connected now to a managed network (work, school, public Wi-Fi), '
-            'port ${blocked.port} is blocked by policy — use a different '
-            'network, or mobile data (not WiFi), or a VPN. On your own network, check the firewall rules '
-            'in your router settings.',
+            'If you connected now to a managed network (work, school, '
+            'public Wi-Fi), port ${blocked.port} is blocked by policy — '
+            'use a different network, or mobile data (not WiFi), or a '
+            'VPN. On your own network, check the firewall rules in your '
+            'router settings.',
         actions: const [
           SolutionAction(type: SolutionActionType.retry, label: 'Test again'),
         ],
@@ -213,8 +250,9 @@ class VerdictCatalog {
       ),
       solution: const Solution(
         message:
-            'Try again at a different time, on a different network, or using mobile data (not WiFi), or '
-            'over a VPN to see if the speed recovers. If only certain apps '
+            'Try again at a different time, on a different network, or '
+            'using mobile data (not WiFi), or over a VPN to see if the '
+            'speed recovers. If only certain apps '
             'are slow, your provider may be shaping that type of traffic — '
             'contact them to confirm your plan speed.',
         actions: [
@@ -240,8 +278,9 @@ class VerdictCatalog {
       ),
       solution: const Solution(
         message:
-            'There is nothing to fix on your device and in your network. Report the failing '
-            'route to your Internet provider (mention that traceroute stops '
+            'There is nothing to fix on your device and in your '
+            'network. Report the failing route to your Internet provider '
+            '(mention that traceroute stops '
             'partway). It usually clears once they fix the route.',
         actions: [
           SolutionAction(type: SolutionActionType.retry, label: 'Test again'),

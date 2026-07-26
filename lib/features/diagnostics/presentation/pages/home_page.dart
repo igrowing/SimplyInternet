@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
+import 'package:simply_internet/core/theme/theme_controller.dart';
 import 'package:simply_internet/features/diagnostics/domain/usecases/run_diagnosis.dart';
 import 'package:simply_internet/features/diagnostics/presentation/controllers/diagnosis_controller.dart';
 import 'package:simply_internet/features/diagnostics/presentation/widgets/result_view.dart';
@@ -12,7 +14,11 @@ class HomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('SimplyInternet'), centerTitle: true),
+      appBar: AppBar(
+        titleSpacing: 0,
+        title: const _AppBarTitle(),
+        actions: const [_ThemeToggleButton()],
+      ),
       body: SafeArea(
         child: Consumer<DiagnosisController>(
           builder: (context, controller, _) {
@@ -50,48 +56,118 @@ class _IdleView extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final wide = constraints.maxWidth > 600;
-        return Center(
+        final landscape = constraints.maxWidth > constraints.maxHeight;
+        // Shrink the decorative icon in short (landscape) viewports so the
+        // prompt and the button both stay on screen.
+        final iconSize = landscape ? 64.0 : (wide ? 120.0 : 96.0);
+        // Keep the prompt a little above the vertical middle and the button a
+        // little below it, while staying centred as a block.
+        final gap = landscape ? 28.0 : 48.0;
+        return SingleChildScrollView(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 520),
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.wifi_find,
-                    size: wide ? 120 : 96,
-                    color: theme.colorScheme.primary,
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 520),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 16,
                   ),
-                  const SizedBox(height: 24),
-                  Text(
-                    'Internet does not work?\nInstable? Works partially?',
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.titleLarge,
-                  ),
-                  const SizedBox(height: 40),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 72,
-                    child: FilledButton.icon(
-                      onPressed: onStart,
-                      icon: const Icon(Icons.search, size: 28),
-                      label: const Text(
-                        'Find the problem and give solution',
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.wifi_find,
+                        size: iconSize,
+                        color: theme.colorScheme.primary,
+                      ),
+                      const SizedBox(height: 20),
+                      Text(
+                        'Internet does not work?\nInstable? Works partially?',
                         textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+                        style: theme.textTheme.titleLarge,
+                      ),
+                      SizedBox(height: gap),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 72,
+                        child: FilledButton.icon(
+                          onPressed: onStart,
+                          icon: const Icon(Icons.search, size: 28),
+                          label: const Text(
+                            'Find the problem and give solution',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
                       ),
-                    ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
           ),
         );
       },
+    );
+  }
+}
+
+/// App icon + name with the version shown in a small font underneath.
+class _AppBarTitle extends StatelessWidget {
+  const _AppBarTitle();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const SizedBox(width: 12),
+        Image.asset('assets/simplyinternet_fg.png', width: 36, height: 36),
+        const SizedBox(width: 10),
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('SimplyInternet'),
+            FutureBuilder<PackageInfo>(
+              future: PackageInfo.fromPlatform(),
+              builder: (context, snapshot) {
+                final version = snapshot.data?.version;
+                return Text(
+                  version == null ? '' : 'v.$version',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+/// Toggles the app between light and dark. Follows the system theme until the
+/// first tap (see [ThemeController]).
+class _ThemeToggleButton extends StatelessWidget {
+  const _ThemeToggleButton();
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = context.watch<ThemeController>();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return IconButton(
+      tooltip: isDark ? 'Switch to light theme' : 'Switch to dark theme',
+      icon: Icon(isDark ? Icons.light_mode : Icons.dark_mode),
+      onPressed: () =>
+          controller.toggle(MediaQuery.platformBrightnessOf(context)),
     );
   }
 }

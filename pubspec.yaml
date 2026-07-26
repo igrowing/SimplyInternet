@@ -17,7 +17,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 0.0.2+1
+version: 0.0.3+2
 
 environment:
   sdk: ^3.12.0
@@ -45,6 +45,10 @@ dependencies:
   http: ^1.6.0
   # Gateway IP / subnet detection (reused pattern from SimplyNet).
   network_info_plus: ^8.1.0
+  # App version (shown under the app name on the main screen).
+  package_info_plus: ^10.0.0
+  # Persist the user's light/dark theme choice across launches.
+  shared_preferences: ^2.3.2
   # Reactive state management for the diagnosis controller.
   provider: ^6.1.5+1
   # Opening captive-portal URLs in the browser.
@@ -69,6 +73,9 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
+  assets:
+    - assets/simplyinternet_fg.png
 
   # To add assets to your application, add an assets section, like this:
   # assets:

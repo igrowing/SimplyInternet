@@ -119,6 +119,12 @@ class RunDiagnosis {
           return _report(VerdictCatalog.ispPathProblem(path), log);
         }
       }
+      // On a cellular link there is no router/ISP line to blame: a dead data
+      // path means the mobile data itself is not passing traffic (roaming
+      // off, no allowance, carrier outage) rather than a home ISP outage.
+      if (conn.kind == ConnectivityKind.mobile) {
+        return _report(VerdictCatalog.mobileDataNoInternet(), log);
+      }
       return _report(VerdictCatalog.noInternetIsp(), log);
     }
 

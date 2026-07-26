@@ -1,4 +1,6 @@
 import 'package:get_it/get_it.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:simply_internet/core/theme/theme_controller.dart';
 import 'package:simply_internet/features/diagnostics/data/datasources/platform_actions_datasource.dart';
 import 'package:simply_internet/features/diagnostics/data/repositories/device_actions_impl.dart';
 import 'package:simply_internet/features/diagnostics/data/repositories/network_probe_impl.dart';
@@ -12,8 +14,10 @@ import 'package:simply_internet/features/diagnostics/presentation/controllers/di
 final GetIt sl = GetIt.instance;
 
 /// Wire up the dependency graph. Call once during app start-up.
-void configureDependencies() {
+void configureDependencies(SharedPreferences prefs) {
   sl
+    ..registerSingleton<SharedPreferences>(prefs)
+    ..registerLazySingleton(() => ThemeController(sl<SharedPreferences>()))
     ..registerLazySingleton(PlatformActionsDatasource.new)
     ..registerLazySingleton<NetworkProbe>(NetworkProbeImpl.new)
     ..registerLazySingleton<DeviceActions>(
