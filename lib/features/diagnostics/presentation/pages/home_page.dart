@@ -24,17 +24,37 @@ class HomePage extends StatelessWidget {
       body: SafeArea(
         child: Consumer2<DiagnosisController, UrlCheckController>(
           builder: (context, diag, url, _) {
-            if (diag.status != DiagnosisStatus.idle) {
-              return _diagnosisBody(diag);
-            }
-            if (url.status != UrlCheckStatus.idle) {
-              return _urlBody(url);
-            }
-            return _IdleView(diag: diag, url: url);
+            final diagActive = diag.status != DiagnosisStatus.idle;
+            final urlActive = url.status != UrlCheckStatus.idle;
+            return PopScope(
+              // While a result/progress screen is up, the system Back button
+              // should return to the main screen instead of leaving the app.
+              canPop: !diagActive && !urlActive,
+              onPopInvokedWithResult: (didPop, _) {
+                if (didPop) return;
+                if (diagActive) {
+                  diag.reset();
+                } else if (urlActive) {
+                  url.reset();
+                }
+              },
+              child: _buildBody(diag, url, diagActive, urlActive),
+            );
           },
         ),
       ),
     );
+  }
+
+  Widget _buildBody(
+    DiagnosisController diag,
+    UrlCheckController url,
+    bool diagActive,
+    bool urlActive,
+  ) {
+    if (diagActive) return _diagnosisBody(diag);
+    if (urlActive) return _urlBody(url);
+    return _IdleView(diag: diag, url: url);
   }
 
   Widget _diagnosisBody(DiagnosisController controller) {
@@ -107,9 +127,12 @@ class _IdleViewState extends State<_IdleView> {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final landscape = constraints.maxWidth > constraints.maxHeight;
+        // Branch on available width only. Comparing width>height would flip
+        // the layout when the keyboard opens (it shrinks height), rebuilding
+        // and unfocusing the URL field so the keyboard closes instantly.
+        final wide = constraints.maxWidth > 600;
         final diagnose = _DiagnoseGroup(
-          landscape: landscape,
+          compact: wide,
           onStart: widget.diag.run,
         );
         final checkUrl = _UrlCheckGroup(
@@ -117,7 +140,7 @@ class _IdleViewState extends State<_IdleView> {
           onSubmit: _submitUrl,
         );
 
-        if (landscape) {
+        if (wide) {
           return Row(
             children: [
               Expanded(child: _centered(constraints, diagnose)),
@@ -163,16 +186,18 @@ class _IdleViewState extends State<_IdleView> {
 
 /// The full-diagnosis function: prompt above, big button below.
 class _DiagnoseGroup extends StatelessWidget {
-  const _DiagnoseGroup({required this.landscape, required this.onStart});
+  const _DiagnoseGroup({required this.compact, required this.onStart});
 
-  final bool landscape;
+  /// True when the two groups sit side by side, so the decorative icon and
+  /// spacing shrink to fit the narrower column.
+  final bool compact;
   final VoidCallback onStart;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final iconSize = landscape ? 56.0 : 96.0;
-    final gap = landscape ? 24.0 : 40.0;
+    final iconSize = compact ? 56.0 : 96.0;
+    final gap = compact ? 24.0 : 40.0;
     return Column(
       mainAxisSize: MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.center,
