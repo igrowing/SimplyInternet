@@ -39,14 +39,22 @@ class CheckUrl {
         : _inspector.dnsResolves(host);
     final domainF = registrable == null
         ? Future<DomainInfo>.value(const DomainInfo.unavailable())
-        : _inspector.domainInfo(registrable);
+        : _inspector
+              .domainInfo(registrable)
+              .catchError((Object _) => const DomainInfo.unavailable());
     final portsF = url.hasPort
         ? Future<List<UrlPortResult>>.value(const [])
         : _inspector.checkPorts(host, _webPorts.map((p) => p.port).toList());
     final tlsF = isHttps
         ? _inspector.tlsInfo(host, url.hasPort ? url.port : 443)
         : Future<TlsInfo>.value(const TlsInfo.unavailable());
-    final regionsF = _inspector.checkFromRegions(url);
+    final regionsF = _inspector
+        .checkFromRegions(url)
+        .timeout(
+          const Duration(seconds: 18),
+          onTimeout: () => const RegionReport.unavailable(),
+        )
+        .catchError((Object _) => const RegionReport.unavailable());
 
     final (fetch, dnsOk, domain, ports, tls, regions) = await (
       fetchF,

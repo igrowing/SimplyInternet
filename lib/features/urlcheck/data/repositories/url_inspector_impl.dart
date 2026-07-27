@@ -240,7 +240,9 @@ class UrlInspectorImpl implements UrlInspector {
           countryByNode[node] = (info[0] as String).toUpperCase();
         }
       });
-      return _pollRegionResult(client, requestId, countryByNode);
+      // Must await here: returning the future directly would let the
+      // `finally` below close the client before polling finishes.
+      return await _pollRegionResult(client, requestId, countryByNode);
     } on TimeoutException {
       return const RegionReport.unavailable();
     } on http.ClientException {

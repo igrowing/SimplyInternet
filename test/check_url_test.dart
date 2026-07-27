@@ -22,6 +22,14 @@ void main() {
       expect(report.worst, UrlSeverity.ok);
     });
 
+    test('still reports success when the region probe throws', () async {
+      final report = await CheckUrl(
+        FakeUrlInspector(throwOnRegions: true),
+      ).call('example.com');
+      expect(report.reachable, isTrue);
+      expect(report.headline, 'The website works');
+    });
+
     test('explains a 403 as access denied', () async {
       final report = await CheckUrl(
         FakeUrlInspector(
