@@ -47,7 +47,8 @@ in everyday language:
 - Whether the web address even exists or has expired
 - Whether the site's security certificate is valid
 - Whether the site is **down for everyone or just you**, and whether it looks
-  blocked in your region
+  blocked in your region — double-checked against an independent worldwide
+  outage service so you get a trustworthy second opinion
 - Whether it might just need a special "port" in the address
 
 So you finally know the answer to the age-old question: *"Is it broken, or is it

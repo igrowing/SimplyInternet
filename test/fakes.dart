@@ -114,7 +114,9 @@ class FakeUrlInspector implements UrlInspector {
     this.tls = const TlsInfo(checked: true, valid: true),
     this.ports = const [],
     this.regions = const RegionReport.unavailable(),
+    this.outage = const OutageReport.unavailable(),
     this.throwOnRegions = false,
+    this.throwOnOutage = false,
   }) : fetchResult =
            fetchResult ?? const HttpFetchResult(reached: true, statusCode: 200);
 
@@ -124,7 +126,9 @@ class FakeUrlInspector implements UrlInspector {
   final TlsInfo tls;
   final List<UrlPortResult> ports;
   final RegionReport regions;
+  final OutageReport outage;
   final bool throwOnRegions;
+  final bool throwOnOutage;
 
   @override
   Future<HttpFetchResult> fetch(Uri url) async => fetchResult;
@@ -148,5 +152,13 @@ class FakeUrlInspector implements UrlInspector {
       throw StateError('region service blew up');
     }
     return regions;
+  }
+
+  @override
+  Future<OutageReport> crossCheckOutage(Uri url) async {
+    if (throwOnOutage) {
+      throw StateError('outage service blew up');
+    }
+    return outage;
   }
 }

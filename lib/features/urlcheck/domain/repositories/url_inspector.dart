@@ -21,4 +21,8 @@ abstract class UrlInspector {
 
   /// Check reachability of [url] from vantage points in several countries.
   Future<RegionReport> checkFromRegions(Uri url);
+
+  /// Independent second opinion from an external outage-tracking service, used
+  /// to cross-check our own findings and confirm geo-blocking.
+  Future<OutageReport> crossCheckOutage(Uri url);
 }

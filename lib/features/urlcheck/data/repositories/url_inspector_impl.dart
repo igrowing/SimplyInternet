@@ -283,6 +283,60 @@ class UrlInspectorImpl implements UrlInspector {
     return const RegionReport.unavailable();
   }
 
+  @override
+  Future<OutageReport> crossCheckOutage(Uri url) async {
+    final client = _clientFactory();
+    try {
+      final resp = await client
+          .get(
+            Uri.parse(
+              'https://websitedown.org/api/v1/check'
+              '?url=${Uri.encodeQueryComponent(url.host)}',
+            ),
+            headers: {'Accept': 'application/json', 'User-Agent': _userAgent},
+          )
+          .timeout(const Duration(seconds: 15));
+      if (resp.statusCode != 200) return const OutageReport.unavailable();
+      final body = jsonDecode(resp.body);
+      if (body is! Map<String, dynamic> || body['ok'] != true) {
+        return const OutageReport.unavailable();
+      }
+      final counts = body['signalCounts'];
+      final total = counts is Map ? _asInt(counts['total']) : 0;
+      if (total == 0) return const OutageReport.unavailable();
+      final alt = body['alternateHost'];
+      return OutageReport(
+        available: true,
+        isUp: body['isUp'] == true,
+        verdict: body['verdict'] is String ? body['verdict'] as String : '',
+        summary: body['summary'] is String ? body['summary'] as String : '',
+        total: total,
+        up: counts is Map ? _asInt(counts['up']) : 0,
+        likelyBlocked: counts is Map ? _asInt(counts['likelyBlocked']) : 0,
+        alternateHost: alt is Map && alt['hostname'] is String
+            ? alt['hostname'] as String
+            : null,
+        alternateHostUp: alt is Map && alt['verdict'] == 'up',
+      );
+    } on TimeoutException {
+      return const OutageReport.unavailable();
+    } on http.ClientException {
+      return const OutageReport.unavailable();
+    } on SocketException {
+      return const OutageReport.unavailable();
+    } on FormatException {
+      return const OutageReport.unavailable();
+    } finally {
+      client.close();
+    }
+  }
+
+  int _asInt(Object? value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return 0;
+  }
+
   RegionReport _summariseRegions(
     Map<String, dynamic> data,
     Map<String, String> countryByNode,

@@ -121,6 +121,112 @@ void main() {
       expect(findingWithTitle(report, 'Down for everyone'), isNotNull);
     });
 
+    test('still reports success when the outage cross-check throws', () async {
+      final report = await CheckUrl(
+        FakeUrlInspector(throwOnOutage: true),
+      ).call('example.com');
+      expect(report.reachable, isTrue);
+      expect(report.headline, 'The website works');
+    });
+
+    test(
+      'outage cross-check confirms blocked-for-you when up worldwide',
+      () async {
+        final report = await CheckUrl(
+          FakeUrlInspector(
+            fetchResult: const HttpFetchResult.failed('refused'),
+            outage: const OutageReport(
+              available: true,
+              isUp: true,
+              verdict: 'up',
+              total: 8,
+              up: 8,
+            ),
+          ),
+        ).call('https://geo.example');
+        expect(report.headline, 'The website seems blocked for you');
+        expect(
+          findingWithTitle(report, 'Up worldwide, but not for you'),
+          isNotNull,
+        );
+      },
+    );
+
+    test('outage cross-check confirms down for everyone', () async {
+      final report = await CheckUrl(
+        FakeUrlInspector(
+          fetchResult: const HttpFetchResult.failed('timed out'),
+          outage: const OutageReport(
+            available: true,
+            verdict: 'down',
+            total: 8,
+          ),
+        ),
+      ).call('https://dead.example');
+      expect(report.headline, 'The website is down for everyone');
+      expect(
+        findingWithTitle(report, 'Independent check agrees: down for everyone'),
+        isNotNull,
+      );
+    });
+
+    test('outage cross-check flags geo-fencing on a working site', () async {
+      final report = await CheckUrl(
+        FakeUrlInspector(
+          outage: const OutageReport(
+            available: true,
+            isUp: true,
+            verdict: 'partial',
+            total: 8,
+            up: 6,
+            likelyBlocked: 2,
+          ),
+        ),
+      ).call('https://geo-ok.example');
+      expect(report.reachable, isTrue);
+      expect(findingWithTitle(report, 'Restricted in some regions'), isNotNull);
+    });
+
+    test('outage cross-check suggests a working alternate host', () async {
+      final report = await CheckUrl(
+        FakeUrlInspector(
+          fetchResult: const HttpFetchResult.failed('refused'),
+          outage: const OutageReport(
+            available: true,
+            verdict: 'partial',
+            total: 8,
+            up: 4,
+            alternateHost: 'www.alt.example',
+            alternateHostUp: true,
+          ),
+        ),
+      ).call('https://alt.example');
+      expect(
+        findingWithTitle(report, 'Try the "www.alt.example" address'),
+        isNotNull,
+      );
+    });
+
+    test('a healthy site confirmed worldwide stays green', () async {
+      final report = await CheckUrl(
+        FakeUrlInspector(
+          outage: const OutageReport(
+            available: true,
+            isUp: true,
+            verdict: 'up',
+            total: 8,
+            up: 8,
+          ),
+        ),
+      ).call('example.com');
+      expect(report.headline, 'The website works');
+      expect(report.worst, UrlSeverity.ok);
+      expect(
+        findingWithTitle(report, 'Confirmed working worldwide'),
+        isNotNull,
+      );
+    });
+
     test('flags a bad TLS certificate', () async {
       final report = await CheckUrl(
         FakeUrlInspector(

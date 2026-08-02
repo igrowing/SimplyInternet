@@ -163,3 +163,81 @@ class RegionReport extends Equatable {
   @override
   List<Object?> get props => [available, total, reachable, blockedCountries];
 }
+
+/// Independent second opinion from an external outage-tracking service
+/// (websitedown.org). Used to cross-check our own reachability findings and to
+/// confirm geo-blocking, since the service probes from several continents.
+@immutable
+class OutageReport extends Equatable {
+  const OutageReport({
+    required this.available,
+    this.isUp = false,
+    this.verdict = '',
+    this.summary = '',
+    this.total = 0,
+    this.up = 0,
+    this.likelyBlocked = 0,
+    this.alternateHost,
+    this.alternateHostUp = false,
+    this.source = 'websitedown.org',
+  });
+
+  const OutageReport.unavailable()
+    : available = false,
+      isUp = false,
+      verdict = '',
+      summary = '',
+      total = 0,
+      up = 0,
+      likelyBlocked = 0,
+      alternateHost = null,
+      alternateHostUp = false,
+      source = 'websitedown.org';
+
+  /// Whether the external service returned usable data.
+  final bool available;
+
+  /// The service's overall up/down verdict for the site.
+  final bool isUp;
+
+  /// Raw verdict string from the service, e.g. `up`, `down`, `partial`.
+  final String verdict;
+
+  /// The service's own plain-language summary line.
+  final String summary;
+
+  /// Number of vantage regions the service probed from.
+  final int total;
+
+  /// How many of those regions reached the site.
+  final int up;
+
+  /// How many regions the service classified as likely blocked (geo-fencing).
+  final int likelyBlocked;
+
+  /// A suggested alternate hostname (e.g. the `www.` variant), when offered.
+  final String? alternateHost;
+
+  /// Whether that alternate host was itself reachable.
+  final bool alternateHostUp;
+
+  /// Human-readable name of the service, shown to the user.
+  final String source;
+
+  bool get downEverywhere => available && total > 0 && up == 0;
+  bool get upEverywhere => available && total > 0 && up == total;
+
+  @override
+  List<Object?> get props => [
+    available,
+    isUp,
+    verdict,
+    summary,
+    total,
+    up,
+    likelyBlocked,
+    alternateHost,
+    alternateHostUp,
+    source,
+  ];
+}

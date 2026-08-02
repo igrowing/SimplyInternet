@@ -55,14 +55,22 @@ class CheckUrl {
           onTimeout: () => const RegionReport.unavailable(),
         )
         .catchError((Object _) => const RegionReport.unavailable());
+    final outageF = _inspector
+        .crossCheckOutage(url)
+        .timeout(
+          const Duration(seconds: 18),
+          onTimeout: () => const OutageReport.unavailable(),
+        )
+        .catchError((Object _) => const OutageReport.unavailable());
 
-    final (fetch, dnsOk, domain, ports, tls, regions) = await (
+    final (fetch, dnsOk, domain, ports, tls, regions, outage) = await (
       fetchF,
       dnsF,
       domainF,
       portsF,
       tlsF,
       regionsF,
+      outageF,
     ).wait;
 
     final elapsed = fetch.elapsedMs != null ? '${fetch.elapsedMs}ms' : '';
@@ -80,6 +88,10 @@ class CheckUrl {
         'Regions: available=${regions.available} '
         '${regions.reachable}/${regions.total} reachable, '
         'blocked=${regions.blockedCountries.join(",")}';
+    final outageLine =
+        'Outage x-check (${outage.source}): available=${outage.available} '
+        'verdict=${outage.verdict.isEmpty ? "-" : outage.verdict} '
+        '${outage.up}/${outage.total} up, blocked=${outage.likelyBlocked}';
     final log = <String>[
       'URL: $url',
       'DNS resolves: $dnsOk',
@@ -90,6 +102,7 @@ class CheckUrl {
       for (final p in ports)
         'Port ${p.port}/${p.service}: ${p.open ? "open" : "closed"}',
       regionLine,
+      outageLine,
     ];
 
     final findings = <UrlFinding>[];
@@ -99,13 +112,14 @@ class CheckUrl {
     if (isHttps) _addTls(findings, tls);
     _addPorts(findings, url, ports);
     _addRegions(findings, fetch, regions);
+    _addOutageCrossCheck(findings, fetch, outage);
 
     findings.sort((a, b) => b.severity.index.compareTo(a.severity.index));
 
     return UrlCheckReport(
       url: url.toString(),
       reachable: fetch.isSuccess,
-      headline: _headline(fetch, dnsOk, domain, regions),
+      headline: _headline(fetch, dnsOk, domain, regions, outage),
       findings: findings,
       log: log,
     );
@@ -445,11 +459,119 @@ class CheckUrl {
     }
   }
 
+  /// Cross-checks our own fetch result against an independent outage service
+  /// (websitedown.org), which probes from several continents. This confirms
+  /// "down for everyone" vs "blocked just for you" and flags geo-fencing.
+  void _addOutageCrossCheck(
+    List<UrlFinding> out,
+    HttpFetchResult fetch,
+    OutageReport o,
+  ) {
+    if (!o.available || o.total == 0) return;
+    final scope = '${o.up} of ${o.total} regions';
+    if (fetch.isSuccess) {
+      if (o.likelyBlocked > 0) {
+        out.add(
+          UrlFinding(
+            severity: UrlSeverity.info,
+            title: 'Restricted in some regions',
+            detail:
+                'It works for you, but an independent outage service '
+                '(${o.source}) found it blocked in ${o.likelyBlocked} of its '
+                '${o.total} test regions. If someone abroad cannot open it, '
+                'that is likely geo-restriction, not a fault on your side.',
+          ),
+        );
+        return;
+      }
+      out.add(
+        UrlFinding(
+          severity: UrlSeverity.ok,
+          title: 'Confirmed working worldwide',
+          detail:
+              'An independent outage service (${o.source}) also reached the '
+              'site from $scope, so it is genuinely up — not just cached for '
+              'you.',
+        ),
+      );
+      return;
+    }
+    if (o.downEverywhere) {
+      out.add(
+        UrlFinding(
+          severity: UrlSeverity.problem,
+          title: 'Independent check agrees: down for everyone',
+          detail:
+              'An independent outage service (${o.source}) could not reach the '
+              'site from any of its ${o.total} test regions either. The site '
+              'is down for everyone, not just you — there is nothing to fix on '
+              'your side; wait and try later.',
+        ),
+      );
+      return;
+    }
+    if (o.upEverywhere) {
+      out.add(
+        UrlFinding(
+          severity: UrlSeverity.problem,
+          title: 'Up worldwide, but not for you',
+          detail:
+              'An independent outage service (${o.source}) reached the site '
+              'from all $scope, yet it failed on your connection. That '
+              'strongly points to a block on your network/ISP or a '
+              'geo-restriction. Try mobile data, a different DNS, or a VPN.',
+        ),
+      );
+      _maybeSuggestAlternate(out, o);
+      return;
+    }
+    if (o.likelyBlocked > 0) {
+      out.add(
+        UrlFinding(
+          severity: UrlSeverity.problem,
+          title: 'Blocked in some regions (geo-restriction)',
+          detail:
+              'An independent outage service (${o.source}) reached the site '
+              'from $scope but found it blocked in ${o.likelyBlocked} of them. '
+              'This is a sign of geo-fencing; a VPN set to an allowed country '
+              'usually gets around it.',
+        ),
+      );
+      _maybeSuggestAlternate(out, o);
+      return;
+    }
+    out.add(
+      UrlFinding(
+        severity: UrlSeverity.info,
+        title: 'Second opinion from $scope',
+        detail:
+            'An independent outage service (${o.source}) reports: '
+            '"${o.summary}".',
+      ),
+    );
+    _maybeSuggestAlternate(out, o);
+  }
+
+  void _maybeSuggestAlternate(List<UrlFinding> out, OutageReport o) {
+    final alt = o.alternateHost;
+    if (alt == null || !o.alternateHostUp) return;
+    out.add(
+      UrlFinding(
+        severity: UrlSeverity.info,
+        title: 'Try the "$alt" address',
+        detail:
+            'The exact address did not work, but "$alt" did. You may have '
+            'left off (or added) a "www." — open $alt instead.',
+      ),
+    );
+  }
+
   String _headline(
     HttpFetchResult fetch,
     bool dnsOk,
     DomainInfo domain,
     RegionReport regions,
+    OutageReport outage,
   ) {
     if (fetch.isSuccess) return 'The website works';
     if (domain.checked && !domain.exists) {
@@ -457,8 +579,10 @@ class CheckUrl {
     }
     if (domain.expired) return 'The site domain has expired';
     if (!dnsOk) return "This web address can't be found";
-    if (regions.downEverywhere) return 'The website is down for everyone';
-    if (!fetch.reached && regions.reachableFromSome) {
+    if (regions.downEverywhere || outage.downEverywhere) {
+      return 'The website is down for everyone';
+    }
+    if (!fetch.reached && (regions.reachableFromSome || outage.upEverywhere)) {
       return 'The website seems blocked for you';
     }
     if (fetch.reached && fetch.statusCode != null) {
