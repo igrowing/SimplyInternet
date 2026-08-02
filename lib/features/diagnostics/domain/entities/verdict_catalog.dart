@@ -192,8 +192,12 @@ class VerdictCatalog {
       ),
       solution: const Solution(
         message:
-            'Switch your Private DNS to a reliable public resolver such '
-            'as 1.1.1.1 (Cloudflare) or 8.8.8.8 (Google), then test again.',
+            '1. Switch your Private DNS to a reliable public resolver such '
+            'as 1.1.1.1 (Cloudflare) or 8.8.8.8 (Google), then test again.\n'
+            '2. If you are on a managed network (work, school, public Wi-Fi), contact the network administrator to fix the DNS.\n'
+            '3. If you are on your own network, check your router settings. '
+            'It is good practice to configure the secondary DNS to a public resolver as well '
+            '(examples: 1.1.1.1, 4.4.4.4, 4.4.2.2, 8.8.8.8), in case the primary (your Internet provider) fails.',
         actions: [
           SolutionAction(
             type: SolutionActionType.changeDns,
