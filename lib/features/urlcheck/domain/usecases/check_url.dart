@@ -510,6 +510,25 @@ class CheckUrl {
     RegionReport regions,
   ) {
     if (!regions.available || regions.total == 0) return;
+    if (fetch.isSuccess) {
+      if (regions.blockedCountries.isNotEmpty) {
+        out.add(
+          UrlFinding(
+            severity: UrlSeverity.info,
+            title: 'Restricted in some regions',
+            detail:
+                'It works for you, but was blocked from '
+                '${regions.blockedCountries.join(", ")}. If someone elsewhere '
+                'cannot open it, that is likely geo-restriction.',
+          ),
+        );
+      }
+      return;
+    }
+    // The server answered us with an error code: it is reachable, so region
+    // "down/blocked" opinions would contradict the reply we just received.
+    // The HTTP status finding is authoritative here.
+    if (fetch.reached) return;
     if (regions.downEverywhere) {
       out.add(
         const UrlFinding(
@@ -523,7 +542,7 @@ class CheckUrl {
       );
       return;
     }
-    if (!fetch.isSuccess && regions.reachableFromSome) {
+    if (regions.reachableFromSome) {
       final where = regions.blockedCountries.isNotEmpty
           ? ' (blocked from: ${regions.blockedCountries.join(", ")})'
           : '';
@@ -536,19 +555,6 @@ class CheckUrl {
               'not from your connection$where. This is geo-blocking or a block '
               'on your network/ISP, not a broken site. A VPN, mobile data, or '
               'a different DNS often gets around it.',
-        ),
-      );
-      return;
-    }
-    if (fetch.isSuccess && regions.blockedCountries.isNotEmpty) {
-      out.add(
-        UrlFinding(
-          severity: UrlSeverity.info,
-          title: 'Restricted in some regions',
-          detail:
-              'It works for you, but was blocked from '
-              '${regions.blockedCountries.join(", ")}. If someone elsewhere '
-              'cannot open it, that is likely geo-restriction.',
         ),
       );
     }
@@ -591,6 +597,10 @@ class CheckUrl {
       );
       return;
     }
+    // Server answered with an error code: it is reachable, so the outage
+    // service's "down/up/blocked elsewhere" narrative would contradict the
+    // reply. The HTTP status finding already explains the error.
+    if (fetch.reached) return;
     if (o.downEverywhere) {
       out.add(
         UrlFinding(
@@ -679,6 +689,12 @@ class CheckUrl {
     if (!fetch.reached && upElsewhere) {
       return 'The website seems blocked for you';
     }
+    // The server actually answered us (a real 4xx/5xx). It is demonstrably
+    // reachable, so report the code - never "down for everyone" or
+    // "can't be found", which would contradict the reply we just received.
+    if (fetch.reached && fetch.statusCode != null) {
+      return 'The website answered with a problem (${fetch.statusCode})';
+    }
     if (domain.checked && !domain.exists && !dnsOk) {
       return 'This web address is not registered';
     }
@@ -686,9 +702,6 @@ class CheckUrl {
     if (!dnsOk) return "This web address can't be found";
     if (regions.downEverywhere || outage.downEverywhere) {
       return 'The website is down for everyone';
-    }
-    if (fetch.reached && fetch.statusCode != null) {
-      return 'The website answered with a problem (${fetch.statusCode})';
     }
     return 'The website is not responding';
   }

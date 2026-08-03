@@ -296,6 +296,31 @@ void main() {
       expect(findingWithTitle(report, 'Page not found (404)'), isNotNull);
     });
 
+    // Regression: a real HTTP reply (e.g. 404) must win over an external
+    // "down everywhere" verdict — the server demonstrably answered us, so it
+    // cannot be down for everyone (a private/firewalled host the external
+    // nodes simply cannot reach).
+    test('a real HTTP reply beats a false "down for everyone"', () async {
+      final report = await CheckUrl(
+        FakeUrlInspector(
+          fetchResult: const HttpFetchResult(reached: true, statusCode: 404),
+          regions: const RegionReport(available: true, total: 8), // reachable 0
+          outage: const OutageReport(
+            available: true,
+            verdict: 'down',
+            total: 8,
+          ),
+        ),
+      ).call('http://10.0.2.2:8080/404');
+      expect(report.headline, 'The website answered with a problem (404)');
+      expect(findingWithTitle(report, 'Down for everyone'), isNull);
+      expect(
+        findingWithTitle(report, 'Independent check agrees: down for everyone'),
+        isNull,
+      );
+      expect(findingWithTitle(report, 'Page not found (404)'), isNotNull);
+    });
+
     test('uses the registrable domain under a multi-label suffix', () async {
       final fake = FakeUrlInspector();
       await CheckUrl(fake).call('www.meuhedet.co.il');
