@@ -227,6 +227,81 @@ void main() {
       );
     });
 
+    // Regression: rdap.org returns 404 for registries it does not cover
+    // (e.g. .il), which must NOT be reported as "not registered" when the
+    // site clearly loads (the meuhedet.co.il case).
+    test('working site is not marked unregistered on an RDAP 404', () async {
+      final report = await CheckUrl(
+        FakeUrlInspector(
+          domain: const DomainInfo(checked: true), // exists == false (404)
+          outage: const OutageReport(
+            available: true,
+            isUp: true,
+            verdict: 'up',
+            total: 8,
+            up: 8,
+          ),
+        ),
+      ).call('meuhedet.co.il');
+      expect(report.headline, 'The website works');
+      expect(report.worst, UrlSeverity.ok);
+      expect(findingWithTitle(report, 'Domain is not registered'), isNull);
+    });
+
+    // Regression: a hard geo-block shows up locally as DNS + connection
+    // failures, but RDAP confirms the domain and the cross-check says it is
+    // up worldwide (the iherb.com case). We must not say "can't be found".
+    test('hard geo-block reads as blocked, not a dead address', () async {
+      final report = await CheckUrl(
+        FakeUrlInspector(
+          dns: false,
+          fetchResult: const HttpFetchResult.failed('no route to host'),
+          outage: const OutageReport(
+            available: true,
+            isUp: true,
+            verdict: 'up',
+            total: 8,
+            up: 8,
+          ),
+        ),
+      ).call('iherb.com');
+      expect(report.headline, 'The website seems blocked for you');
+      expect(findingWithTitle(report, "The address doesn't exist"), isNull);
+      expect(findingWithTitle(report, 'Domain is not registered'), isNull);
+      expect(findingWithTitle(report, 'The website did not respond'), isNull);
+      expect(
+        findingWithTitle(report, 'Up worldwide, but not for you'),
+        isNotNull,
+      );
+      // A block on the user's side is a warning, not a scary red "broken".
+      expect(report.worst, UrlSeverity.warning);
+    });
+
+    // A real 4xx must stay a 4xx even when the host is up elsewhere — the
+    // server answered, so this is not a network block.
+    test('a 404 is not mistaken for a geo-block', () async {
+      final report = await CheckUrl(
+        FakeUrlInspector(
+          fetchResult: const HttpFetchResult(reached: true, statusCode: 404),
+          outage: const OutageReport(
+            available: true,
+            isUp: true,
+            verdict: 'up',
+            total: 8,
+            up: 8,
+          ),
+        ),
+      ).call('https://httpstat.us/404');
+      expect(report.headline, 'The website answered with a problem (404)');
+      expect(findingWithTitle(report, 'Page not found (404)'), isNotNull);
+    });
+
+    test('uses the registrable domain under a multi-label suffix', () async {
+      final fake = FakeUrlInspector();
+      await CheckUrl(fake).call('www.meuhedet.co.il');
+      expect(fake.lastDomainQueried, 'meuhedet.co.il');
+    });
+
     test('flags a bad TLS certificate', () async {
       final report = await CheckUrl(
         FakeUrlInspector(

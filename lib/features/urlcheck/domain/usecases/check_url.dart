@@ -105,10 +105,33 @@ class CheckUrl {
       outageLine,
     ];
 
+    // Positive evidence the site genuinely exists, gathered from any source.
+    // Used to stop one unreliable signal (e.g. an RDAP 404 for a registry
+    // rdap.org does not cover, like .il) from producing a misleading verdict.
+    final upElsewhere =
+        regions.reachableFromSome ||
+        (outage.available && (outage.isUp || outage.up > 0));
+    final existsEvidence =
+        dnsOk ||
+        fetch.reached ||
+        upElsewhere ||
+        (domain.checked && domain.exists);
+    // Our own probe failed, yet the site is demonstrably up somewhere else:
+    // this is a block/geo-restriction on the user's side, not a dead site.
+    final blockedForYou = !fetch.isSuccess && upElsewhere;
+
     final findings = <UrlFinding>[];
 
-    _addDnsAndDomain(findings, host, hostIsIp, dnsOk, domain);
-    _addHttp(findings, fetch);
+    _addDnsAndDomain(
+      findings,
+      host,
+      hostIsIp,
+      dnsOk,
+      domain,
+      existsEvidence,
+      fetch,
+    );
+    _addHttp(findings, fetch, blockedForYou);
     if (isHttps) _addTls(findings, tls);
     _addPorts(findings, url, ports);
     _addRegions(findings, fetch, regions);
@@ -119,7 +142,7 @@ class CheckUrl {
     return UrlCheckReport(
       url: url.toString(),
       reachable: fetch.isSuccess,
-      headline: _headline(fetch, dnsOk, domain, regions, outage),
+      headline: _headline(fetch, dnsOk, domain, regions, outage, upElsewhere),
       findings: findings,
       log: log,
     );
@@ -157,10 +180,63 @@ class CheckUrl {
     });
   }
 
+  /// Common two-label public suffixes, so a host like `meuhedet.co.il` yields
+  /// the registrable `meuhedet.co.il` and not the bare suffix `co.il`.
+  static const Set<String> _multiLabelSuffixes = {
+    'co.uk',
+    'org.uk',
+    'me.uk',
+    'gov.uk',
+    'ac.uk',
+    'ltd.uk',
+    'plc.uk',
+    'co.il',
+    'org.il',
+    'net.il',
+    'ac.il',
+    'gov.il',
+    'muni.il',
+    'k12.il',
+    'co.jp',
+    'ne.jp',
+    'or.jp',
+    'go.jp',
+    'ac.jp',
+    'com.au',
+    'net.au',
+    'org.au',
+    'edu.au',
+    'gov.au',
+    'com.br',
+    'com.cn',
+    'com.mx',
+    'com.tr',
+    'com.sg',
+    'com.hk',
+    'com.tw',
+    'com.ua',
+    'com.ar',
+    'com.pl',
+    'com.ph',
+    'com.my',
+    'com.vn',
+    'com.eg',
+    'co.nz',
+    'co.za',
+    'co.in',
+    'co.kr',
+    'co.id',
+    'co.th',
+  };
+
   String _registrableDomain(String host) {
     final labels = host.split('.').where((l) => l.isNotEmpty).toList();
     if (labels.length <= 2) return host;
-    return labels.sublist(labels.length - 2).join('.');
+    final lastTwo = labels.sublist(labels.length - 2).join('.');
+    if (labels.length >= 3 && _multiLabelSuffixes.contains(lastTwo)) {
+      return labels.sublist(labels.length - 3).join('.');
+    }
+    return lastTwo;
   }
 
   // ── Finding builders ─────────────────────────────────────────────────────
@@ -171,8 +247,12 @@ class CheckUrl {
     bool hostIsIp,
     bool dnsOk,
     DomainInfo domain,
+    bool existsEvidence,
+    HttpFetchResult fetch,
   ) {
-    if (!hostIsIp && !dnsOk) {
+    // Only claim the name does not exist when nothing else proves it does —
+    // otherwise a local DNS block would masquerade as a dead address.
+    if (!hostIsIp && !dnsOk && !existsEvidence) {
       out.add(
         const UrlFinding(
           severity: UrlSeverity.problem,
@@ -186,6 +266,9 @@ class CheckUrl {
     }
     if (!domain.checked) return;
     if (!domain.exists) {
+      // RDAP 404 is not authoritative: rdap.org does not cover every registry
+      // (e.g. .il). Never contradict solid evidence that the site is live.
+      if (existsEvidence) return;
       out.add(
         const UrlFinding(
           severity: UrlSeverity.problem,
@@ -198,16 +281,20 @@ class CheckUrl {
       return;
     }
     if (domain.expired) {
-      out.add(
-        UrlFinding(
-          severity: UrlSeverity.problem,
-          title: 'Domain registration has expired',
-          detail:
-              'The owner appears to have let the domain lapse'
-              '${_expirySuffix(domain.expiry)}. Until they renew it, the '
-              'site will not work for anyone. There is nothing you can fix.',
-        ),
-      );
+      // Registry says expired but the page still loads → stale RDAP or grace
+      // period; do not raise a scary red on a site that clearly works.
+      if (!fetch.isSuccess) {
+        out.add(
+          UrlFinding(
+            severity: UrlSeverity.problem,
+            title: 'Domain registration has expired',
+            detail:
+                'The owner appears to have let the domain lapse'
+                '${_expirySuffix(domain.expiry)}. Until they renew it, the '
+                'site will not work for anyone. There is nothing you can fix.',
+          ),
+        );
+      }
       return;
     }
     final expiry = domain.expiry;
@@ -227,7 +314,11 @@ class CheckUrl {
     }
   }
 
-  void _addHttp(List<UrlFinding> out, HttpFetchResult fetch) {
+  void _addHttp(
+    List<UrlFinding> out,
+    HttpFetchResult fetch,
+    bool blockedForYou,
+  ) {
     if (fetch.isSuccess) {
       out.add(
         UrlFinding(
@@ -254,17 +345,21 @@ class CheckUrl {
       return;
     }
     if (!fetch.reached) {
-      out.add(
-        UrlFinding(
-          severity: UrlSeverity.problem,
-          title: 'The website did not respond',
-          detail:
-              'No reply came back from the server'
-              '${fetch.error != null ? " (${fetch.error})" : ""}. The other '
-              'checks below help tell whether it is down, blocked, or a '
-              'wrong address/port.',
-        ),
-      );
+      // When the site is proven up elsewhere, "no response" is a block on the
+      // user's side; the geo/block findings explain it without the scary red.
+      if (!blockedForYou) {
+        out.add(
+          UrlFinding(
+            severity: UrlSeverity.problem,
+            title: 'The website did not respond',
+            detail:
+                'No reply came back from the server'
+                '${fetch.error != null ? " (${fetch.error})" : ""}. The other '
+                'checks below help tell whether it is down, blocked, or a '
+                'wrong address/port.',
+          ),
+        );
+      }
       return;
     }
     out.add(_httpStatusFinding(fetch.statusCode!));
@@ -434,13 +529,13 @@ class CheckUrl {
           : '';
       out.add(
         UrlFinding(
-          severity: UrlSeverity.problem,
+          severity: UrlSeverity.warning,
           title: 'Blocked for you, but up elsewhere',
           detail:
-              'The site loads from other countries but not from your '
-              'connection$where. This points to geo-blocking or a block on '
-              'your network/ISP. A VPN, mobile data, or a different DNS '
-              'often gets around it.',
+              'The site itself is fine — it loads from other countries, just '
+              'not from your connection$where. This is geo-blocking or a block '
+              'on your network/ISP, not a broken site. A VPN, mobile data, or '
+              'a different DNS often gets around it.',
         ),
       );
       return;
@@ -513,13 +608,14 @@ class CheckUrl {
     if (o.upEverywhere) {
       out.add(
         UrlFinding(
-          severity: UrlSeverity.problem,
+          severity: UrlSeverity.warning,
           title: 'Up worldwide, but not for you',
           detail:
               'An independent outage service (${o.source}) reached the site '
-              'from all $scope, yet it failed on your connection. That '
-              'strongly points to a block on your network/ISP or a '
-              'geo-restriction. Try mobile data, a different DNS, or a VPN.',
+              'from all $scope, yet it failed on your connection. The site is '
+              'fine — this is a block on your network/ISP or a geo-restriction, '
+              'not a fault you can fix on the site. Try mobile data, a '
+              'different DNS, or a VPN.',
         ),
       );
       _maybeSuggestAlternate(out, o);
@@ -528,7 +624,7 @@ class CheckUrl {
     if (o.likelyBlocked > 0) {
       out.add(
         UrlFinding(
-          severity: UrlSeverity.problem,
+          severity: UrlSeverity.warning,
           title: 'Blocked in some regions (geo-restriction)',
           detail:
               'An independent outage service (${o.source}) reached the site '
@@ -572,18 +668,24 @@ class CheckUrl {
     DomainInfo domain,
     RegionReport regions,
     OutageReport outage,
+    bool upElsewhere,
   ) {
     if (fetch.isSuccess) return 'The website works';
-    if (domain.checked && !domain.exists) {
+    // We got no response at all, yet the site is provably up elsewhere: this
+    // is a block/geo-fence on the user's side, not a dead address, and must
+    // win over the "can't be found"/"not registered" verdicts below. When the
+    // server DID answer (a 4xx/5xx) we fall through to the status verdict —
+    // that is a real server reply, not a network block.
+    if (!fetch.reached && upElsewhere) {
+      return 'The website seems blocked for you';
+    }
+    if (domain.checked && !domain.exists && !dnsOk) {
       return 'This web address is not registered';
     }
     if (domain.expired) return 'The site domain has expired';
     if (!dnsOk) return "This web address can't be found";
     if (regions.downEverywhere || outage.downEverywhere) {
       return 'The website is down for everyone';
-    }
-    if (!fetch.reached && (regions.reachableFromSome || outage.upEverywhere)) {
-      return 'The website seems blocked for you';
     }
     if (fetch.reached && fetch.statusCode != null) {
       return 'The website answered with a problem (${fetch.statusCode})';

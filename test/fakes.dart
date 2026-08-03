@@ -130,6 +130,9 @@ class FakeUrlInspector implements UrlInspector {
   final bool throwOnRegions;
   final bool throwOnOutage;
 
+  /// The registrable domain the use-case asked us to look up (for assertions).
+  String? lastDomainQueried;
+
   @override
   Future<HttpFetchResult> fetch(Uri url) async => fetchResult;
 
@@ -137,7 +140,10 @@ class FakeUrlInspector implements UrlInspector {
   Future<bool> dnsResolves(String host) async => dns;
 
   @override
-  Future<DomainInfo> domainInfo(String d) async => domain;
+  Future<DomainInfo> domainInfo(String d) async {
+    lastDomainQueried = d;
+    return domain;
+  }
 
   @override
   Future<List<UrlPortResult>> checkPorts(String host, List<int> p) async =>
