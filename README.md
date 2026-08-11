@@ -1,58 +1,72 @@
 # SimplyInternet
 
-**When the Wi-Fi bars are full but nothing loads — SimplyInternet tells you exactly why, in plain words, and what to do about it.**
+**Full Wi-Fi bars but nothing loads? One tap and SimplyInternet tells you exactly
+what's broken — in plain words — and what to do about it.**
 
-No jargon. No guessing. No calling your tech-savvy nephew. Just tap one button
-and get a clear answer you can actually act on.
-
-Slow pages, a website that "won't open", videos stuck buffering, or that
-dreaded "No Internet" when everything *looks* connected — SimplyInternet checks
-your connection the way an expert would, then explains the result like a friend
-would.
+No jargon. No guessing. No calling your tech-savvy nephew. 🎉
 
 ---
 
-## What it does
+## Two buttons. Two superpowers.
 
-SimplyInternet has **two simple functions**, right on the main screen.
+### 1️⃣ "Find the problem and give solution" — the whole-Internet check-up
 
-### 1. "Find the problem and give solution"
+Tap the big button, sit back for a few seconds, and the app quietly runs the same
+checks a network engineer would. Then it hands you **one clear answer** — never a
+wall of numbers:
 
-Tap the big button and the app runs a full check-up of your connection. In a
-few seconds it gives you **one clear answer** — never a confusing wall of
-numbers — such as:
-
-- 📶 You're not actually connected (Wi-Fi or mobile data is off)
-- 📡 Your router isn't responding
-- 🔑 A "sign-in" page (like in a hotel or café) is blocking you
-- 🌐 You're connected to the router, but there's no Internet from your provider
-- 🧭 A name-lookup (DNS) problem — often fixable in a tap
+- 📶 Wi-Fi or mobile data is simply off
+- 📡 Your router isn't answering
+- 🔑 A hotel/café "sign-in" page is holding you hostage
+- 🌐 Router's fine — your provider's Internet isn't
+- 🧭 A name-lookup (DNS) hiccup — often fixed in one tap
 - 🚫 Something is blocking a connection (a port or firewall)
-- 🐢 Your connection looks slowed-down or throttled
-- ✅ All clear — everything is working
+- 🐢 Your connection looks throttled or slowed down
+- ✅ All clear — everything works
 
-For anything that's wrong, the app tells you **what to do next** — and when it
-can help directly (for example, "Wi-Fi is off — turn it on?"), it offers to open
-the right settings for you, only after you say yes.
+And it never leaves you hanging: every problem comes with **what to do next**.
+When the app can fix it itself, it asks first — *"Wi-Fi is off. Turn it on?"* —
+and only acts when you say yes. You're always in charge. 💪
 
-### 2. "Check it" — is this one website down?
+### 2️⃣ "Check it" — is this one website down, or is it just me?
 
-A particular site or service not working? Paste its link (URL), tap **Check
-it**, and SimplyInternet quietly investigates in the background and tells you,
-in everyday language:
+One site or app misbehaving? Paste its link, tap **Check it**, and the detective
+work happens in the background:
 
-- Whether the site actually loads for you right now
-- What an error really means ("access denied", "page not found", "too many
-  requests", "the site's server is down") — and what *you* can do
-- Whether the web address even exists or has expired
-- Whether the site's security certificate is valid
-- Whether the site is **down for everyone or just you**, and whether it looks
-  blocked in your region — double-checked against an independent worldwide
-  outage service so you get a trustworthy second opinion
-- Whether it might just need a special "port" in the address
+- Does the site actually load for you, right now?
+- What does that error *really* mean — "access denied", "page not found", "too
+  many requests", "their server is broken" — and what can **you** do about it?
+- Does the web address even exist, or has it expired?
+- Is its security certificate still valid?
+- Is it **down for everyone, or only for you?** Cross-checked against an
+  independent worldwide outage service, so you get a trustworthy second opinion.
+- Is it blocked in your region — or does it just need a special "port"?
 
-So you finally know the answer to the age-old question: *"Is it broken, or is it
-just me?"*
+Finally, a straight answer to the eternal question: *"Is it broken, or is it me?"*
+
+---
+
+## Why you'll want this on your phone 🚀
+
+Every one of us has been there: the video freezes mid-sentence, the payment page
+won't load, the video call drops right before you speak. And then comes the worst
+part — the *not knowing*. Rebooting the router for the third time. Unplugging
+cables at random. Waiting on hold with your provider only to be asked, again,
+whether you've tried turning it off and on.
+
+Stop guessing. **SimplyInternet turns five minutes of frustrated poking into five
+seconds of certainty.** You'll know whether to restart the router, sign in to the
+café Wi-Fi, switch your DNS, call your provider — or simply relax, because the
+website is down and there is genuinely nothing to fix on your side.
+
+That's a real superpower. You'll be the person who *knows*. Your family will
+start asking you. 😎
+
+It's free, it's tiny, it asks for nothing, and it changes nothing on your phone
+without your permission. Install it now — and the next time the Internet acts up,
+you'll be ready.
+
+**One tap. Real answers. Get SimplyInternet.** ⚡
 
 ---
 
@@ -61,11 +75,11 @@ just me?"*
 - 👵 **Parents and grandparents** who just want the Internet to work — without a
   lecture full of tech terms.
 - 🧑‍💼 **Anyone working or studying from home** who needs to know *fast* whether
-  the problem is their Wi-Fi, their provider, or the website itself.
-- ✈️ **Travellers** dealing with hotel, café, and airport Wi-Fi and its
+  it's their Wi-Fi, their provider, or the website itself.
+- ✈️ **Travellers** wrestling with hotel, café, and airport Wi-Fi and its
   mysterious sign-in pages.
-- 🧑‍🔧 **The "family IT person"** who wants a quick, reliable read on a problem
-  before rolling up their sleeves.
+- 🧑‍🔧 **The "family IT person"** who wants a quick, reliable read before rolling
+  up their sleeves.
 - 🙋 **Everyone** who has ever stared at a full signal icon and wondered why
   nothing is loading.
 
