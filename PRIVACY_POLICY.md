@@ -72,7 +72,7 @@ router, generic 204 "connectivity check" endpoints (Google's
 public-IP/country lookup via Cloudflare's trace endpoint
 (`www.cloudflare.com/cdn-cgi/trace`), reachability of a few popular sites, DNS
 resolution, and an optional speed test against Cloudflare
-(`speed.cloudflare.com`) or Speedtest.net (`www.speedtest.net`) servers.
+(`speed.cloudflare.com`).
 
 None of these requests include your name, account details, or any identifier
 beyond your device's public IP address — which is inherent to how the
@@ -126,7 +126,6 @@ files, or anything else on your device):
 |---------|---------|
 | [Google connectivity check](https://developers.google.com/speed/public-dns) (`connectivitycheck.gstatic.com`) | Detect captive portals / generic Internet reachability |
 | [Cloudflare](https://www.cloudflare.com/) (`cp.cloudflare.com`, `cdn-cgi/trace`, `speed.cloudflare.com`) | Connectivity check, public IP/country lookup, speed test |
-| [Speedtest.net](https://www.speedtest.net/) | Speed test server list |
 | [RDAP / rdap.org](https://rdap.org/) | Domain registration lookup |
 | [check-host.net](https://check-host.net/) | Multi-location reachability check |
 | [websitedown.org](https://websitedown.org/) | Independent outage cross-check |
