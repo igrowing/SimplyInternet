@@ -24,7 +24,7 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     PackageInfo.setMockInitialValues(
       appName: 'SimplyInternet',
-      packageName: 'com.simplytools.simply_internet',
+      packageName: 'com.simplytools.simplyInternet',
       version: '1.0.2',
       buildNumber: '3',
       buildSignature: '',
