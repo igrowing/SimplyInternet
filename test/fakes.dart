@@ -1,3 +1,5 @@
+import 'package:simply_internet/features/diagnostics/domain/entities/data_usage.dart';
+import 'package:simply_internet/features/diagnostics/domain/entities/link_quality.dart';
 import 'package:simply_internet/features/diagnostics/domain/entities/network_facts.dart';
 import 'package:simply_internet/features/diagnostics/domain/repositories/device_actions.dart';
 import 'package:simply_internet/features/diagnostics/domain/repositories/network_probe.dart';
@@ -22,7 +24,22 @@ class FakeNetworkProbe implements NetworkProbe {
       PortProbeResult(port: 80, service: 'HTTP', reachable: true),
       PortProbeResult(port: 53, service: 'DNS', reachable: true),
     ],
-    this.speed = const SpeedResult(downloadMbps: 50, ok: true),
+    this.speed = const SpeedResult(
+      downloadMbps: 50,
+      ok: true,
+      uploadMbps: 20,
+      bytesReceived: 6000000,
+      bytesSent: 3000000,
+    ),
+    this.quality = const LinkQuality(
+      gateway: LatencyStats(sent: 10, rttsMs: [2, 2, 3, 2, 2, 3, 2, 2, 3, 2]),
+      internet: LatencyStats(
+        sent: 10,
+        rttsMs: [15, 16, 15, 17, 15, 16, 15, 16, 15, 16],
+      ),
+      loadedRttMs: 22,
+    ),
+    this.usage = const DataUsage.empty(),
     this.path = const IspPathResult(
       reachedDestination: true,
       lastRespondingHop: '1.1.1.1',
@@ -41,9 +58,15 @@ class FakeNetworkProbe implements NetworkProbe {
   bool dnsOk;
   List<PortProbeResult> ports;
   SpeedResult speed;
+  LinkQuality quality;
+  DataUsage usage;
   IspPathResult path;
   String? country;
   List<SiteReachability> sites;
+
+  /// Probe names in the order they were invoked, so tests can assert that the
+  /// idle latency samples are taken before the link is saturated.
+  final List<String> calls = [];
 
   @override
   Future<ConnectivityStatus> connectivity() async => connectivityResult;
@@ -67,7 +90,19 @@ class FakeNetworkProbe implements NetworkProbe {
   Future<List<PortProbeResult>> probeCommonPorts() async => ports;
 
   @override
-  Future<SpeedResult> measureSpeed() async => speed;
+  Future<SpeedResult> measureThroughput() async {
+    calls.add('throughput');
+    return speed;
+  }
+
+  @override
+  Future<LinkQuality> measureLinkQuality({String? gatewayIp}) async {
+    calls.add('quality');
+    return quality;
+  }
+
+  @override
+  DataUsage dataUsage() => usage;
 
   @override
   Future<IspPathResult> tracePath(String host) async => path;

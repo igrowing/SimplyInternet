@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:http/http.dart' as http;
@@ -7,6 +8,8 @@ import 'package:network_info_plus/network_info_plus.dart';
 import 'package:simply_internet/features/diagnostics/data/datasources/platform_actions_datasource.dart';
 import 'package:simply_internet/features/diagnostics/data/datasources/vendor/network_tools.dart';
 import 'package:simply_internet/features/diagnostics/domain/entities/check_endpoints.dart';
+import 'package:simply_internet/features/diagnostics/domain/entities/data_usage.dart';
+import 'package:simply_internet/features/diagnostics/domain/entities/link_quality.dart';
 import 'package:simply_internet/features/diagnostics/domain/entities/network_facts.dart';
 import 'package:simply_internet/features/diagnostics/domain/entities/popular_sites.dart';
 import 'package:simply_internet/features/diagnostics/domain/repositories/network_probe.dart';
@@ -30,6 +33,32 @@ class NetworkProbeImpl implements NetworkProbe {
   final NetworkInfo _networkInfo;
   final PlatformActionsDatasource _platform;
   final http.Client Function() _clientFactory;
+
+  /// Everything this probe did on the network, in the order it happened.
+  final List<ProbeRecord> _records = [];
+
+  @override
+  DataUsage dataUsage() => DataUsage(List.unmodifiable(_records));
+
+  void _record(
+    String test,
+    String target, {
+    int bytesSent = 0,
+    int bytesReceived = 0,
+  }) {
+    _records.add(
+      ProbeRecord(
+        test: test,
+        target: target,
+        bytesSent: bytesSent,
+        bytesReceived: bytesReceived,
+      ),
+    );
+  }
+
+  /// Payload of one ICMP echo (56 data bytes plus the 8-byte ICMP header),
+  /// used to account for what the latency probes cost.
+  static const int _icmpPacketBytes = 64;
 
   @override
   Future<ConnectivityStatus> connectivity() async {
@@ -130,6 +159,15 @@ class NetworkProbeImpl implements NetworkProbe {
     return const CaptivePortalResult.noInternet();
   }
 
+  /// Names the 204 endpoints that were probed for the transparency list.
+  void _recordCaptiveProbe(String url, int bytesReceived) {
+    _record(
+      'Internet / captive-portal check',
+      Uri.parse(url).host,
+      bytesReceived: bytesReceived,
+    );
+  }
+
   Future<_Http204Outcome> _probe204(String url) async {
     final client = _clientFactory();
     try {
@@ -140,6 +178,7 @@ class NetworkProbeImpl implements NetworkProbe {
           .send(request)
           .timeout(const Duration(seconds: 6));
       final response = await http.Response.fromStream(streamed);
+      _recordCaptiveProbe(url, response.bodyBytes.length);
       final code = response.statusCode;
       if (code == 204 && response.bodyBytes.isEmpty) {
         return const _Http204Outcome(_Http204Kind.clear);
@@ -153,10 +192,13 @@ class NetworkProbeImpl implements NetworkProbe {
       // Any other answer (200 with a login page, 511, etc.) is a portal.
       return _Http204Outcome(_Http204Kind.portal, portalUrl: url);
     } on TimeoutException {
+      _recordCaptiveProbe(url, 0);
       return const _Http204Outcome(_Http204Kind.unreachable);
     } on http.ClientException {
+      _recordCaptiveProbe(url, 0);
       return const _Http204Outcome(_Http204Kind.unreachable);
     } on SocketException {
+      _recordCaptiveProbe(url, 0);
       return const _Http204Outcome(_Http204Kind.unreachable);
     } finally {
       client.close();
@@ -165,6 +207,7 @@ class NetworkProbeImpl implements NetworkProbe {
 
   @override
   Future<bool> dnsResolves(String host) async {
+    _record('DNS resolution', host);
     try {
       final addrs = await InternetAddress.lookup(
         host,
@@ -182,16 +225,71 @@ class NetworkProbeImpl implements NetworkProbe {
     final out = <PortProbeResult>[];
     for (final t in kPortProbeTargets) {
       final ok = await tcpReachable(t.host, t.port);
+      _record('Port ${t.port}/${t.service}', t.host);
       out.add(PortProbeResult(port: t.port, service: t.service, reachable: ok));
     }
     return out;
   }
 
   @override
-  Future<SpeedResult> measureSpeed() async {
-    const bytes = 8 * 1000 * 1000; // ~8 MB sample
-    final uri = Uri.parse('https://speed.cloudflare.com/__down?bytes=$bytes');
+  Future<LinkQuality> measureLinkQuality({String? gatewayIp}) async {
+    final gateway = gatewayIp == null
+        ? const LatencyStats.unavailable()
+        : await _sampleLatency('Router latency', gatewayIp);
+    final internet = await _sampleLatency(
+      'Internet latency',
+      kLatencyProbeHost,
+    );
+    return LinkQuality(gateway: gateway, internet: internet);
+  }
+
+  Future<LatencyStats> _sampleLatency(String test, String host) async {
+    final rtts = await NetworkTools.pingRtts(
+      host,
+      count: kLatencySamples,
+      interval: kLatencyInterval,
+    );
+    const bytes = _icmpPacketBytes * kLatencySamples;
+    _record(
+      test,
+      host,
+      bytesSent: bytes,
+      bytesReceived: _icmpPacketBytes * rtts.length,
+    );
+    return LatencyStats(sent: kLatencySamples, rttsMs: rtts);
+  }
+
+  @override
+  Future<SpeedResult> measureThroughput() async {
+    // Sequential on purpose: run together, the two directions contend for the
+    // same link and both rates come out wrong.
+    final download = await _measureDownload();
+    if (!download.ok) return download;
+    final upload = await _measureUpload();
+    return SpeedResult(
+      downloadMbps: download.downloadMbps,
+      ok: true,
+      uploadMbps: upload?.mbps,
+      bytesReceived: download.bytesReceived,
+      bytesSent: upload?.bytes ?? 0,
+      loadedRttMs: download.loadedRttMs,
+    );
+  }
+
+  /// Downloads for at most [kDownloadWindow] and derives the rate from whatever
+  /// arrived, so a slow link reports a low speed instead of timing out. The
+  /// round-trip time is sampled at the same time to expose saturation.
+  Future<SpeedResult> _measureDownload() async {
+    // Ask for more than any consumer link can deliver inside the window; the
+    // request is cut short as soon as the window closes.
+    const bytes = 200 * 1000 * 1000;
+    final uri = Uri.parse('$kDownloadUrl$bytes');
     final client = _clientFactory();
+    final loadedRtts = NetworkTools.pingRtts(
+      kLatencyProbeHost,
+      count: kLatencySamples,
+      interval: kLatencyInterval,
+    );
     try {
       final request = http.Request('GET', uri)
         ..headers['User-Agent'] = 'SimplyInternet/1.0';
@@ -204,12 +302,21 @@ class NetworkProbeImpl implements NetworkProbe {
         const Duration(seconds: 8),
       )) {
         received += chunk.length;
+        if (sw.elapsed >= kDownloadWindow) break;
       }
       sw.stop();
       final seconds = sw.elapsedMilliseconds / 1000.0;
+      final underLoad = await loadedRtts;
+      _record('Download speed', uri.host, bytesReceived: received);
       if (received <= 0 || seconds <= 0) return const SpeedResult.unavailable();
-      final mbps = (received * 8) / seconds / 1000000.0;
-      return SpeedResult(downloadMbps: mbps, ok: true);
+      return SpeedResult(
+        downloadMbps: (received * 8) / seconds / 1000000.0,
+        ok: true,
+        bytesReceived: received,
+        loadedRttMs: underLoad.isEmpty
+            ? null
+            : underLoad.reduce((a, b) => a + b) / underLoad.length,
+      );
     } on TimeoutException {
       return const SpeedResult.unavailable();
     } on http.ClientException {
@@ -221,8 +328,47 @@ class NetworkProbeImpl implements NetworkProbe {
     }
   }
 
+  /// Posts a repeating chunk for at most [kUploadWindow]. Upload is what video
+  /// calls actually run out of, so it is measured rather than inferred.
+  Future<({double mbps, int bytes})?> _measureUpload() async {
+    final client = _clientFactory();
+    final chunk = Uint8List(kUploadChunkBytes);
+    var sent = 0;
+    final sw = Stopwatch()..start();
+    try {
+      while (sw.elapsed < kUploadWindow) {
+        final response = await client
+            .post(
+              Uri.parse(kUploadUrl),
+              headers: const {
+                'User-Agent': 'SimplyInternet/1.0',
+                'Content-Type': 'application/octet-stream',
+              },
+              body: chunk,
+            )
+            .timeout(kUploadWindow + const Duration(seconds: 3));
+        if (response.statusCode >= 400) break;
+        sent += chunk.length;
+      }
+      sw.stop();
+      _record('Upload speed', Uri.parse(kUploadUrl).host, bytesSent: sent);
+      final seconds = sw.elapsedMilliseconds / 1000.0;
+      if (sent <= 0 || seconds <= 0) return null;
+      return (mbps: (sent * 8) / seconds / 1000000.0, bytes: sent);
+    } on TimeoutException {
+      return null;
+    } on http.ClientException {
+      return null;
+    } on SocketException {
+      return null;
+    } finally {
+      client.close();
+    }
+  }
+
   @override
   Future<IspPathResult> tracePath(String host) async {
+    _record('Route to the Internet (traceroute)', host);
     try {
       var reached = false;
       String? lastHop;
@@ -259,9 +405,13 @@ class NetworkProbeImpl implements NetworkProbe {
   Future<String?> detectCountryCode() async {
     final client = _clientFactory();
     try {
-      final resp = await client
-          .get(Uri.parse('https://www.cloudflare.com/cdn-cgi/trace'))
-          .timeout(const Duration(seconds: 6));
+      final uri = Uri.parse('https://www.cloudflare.com/cdn-cgi/trace');
+      final resp = await client.get(uri).timeout(const Duration(seconds: 6));
+      _record(
+        'Country detection',
+        uri.host,
+        bytesReceived: resp.bodyBytes.length,
+      );
       if (resp.statusCode != 200) return null;
       for (final line in resp.body.split('\n')) {
         if (line.startsWith('loc=')) {
@@ -284,6 +434,7 @@ class NetworkProbeImpl implements NetworkProbe {
   @override
   Future<List<SiteReachability>> checkPopularSites(String? countryCode) async {
     final targets = PopularSites.targetsFor(countryCode);
+    _record('Popular sites reachability (${targets.length})', 'port 443');
     final futures = targets.map((site) async {
       final ok = await tcpReachable(site.host, 443);
       return SiteReachability(

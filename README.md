@@ -18,10 +18,22 @@ Tap the big button, sit back for a few seconds, and the app quietly runs the sam
 - 🌐 Router's fine — your provider's Internet isn't
 - 🧭 A name-lookup (DNS) hiccup — often fixed in one tap
 - 🚫 Something is blocking a connection (a port or firewall)
-- 🐢 Your connection looks throttled or slowed down
-- ✅ All clear — everything works
+- ✅ Everything works — and here's what it's good for
 
-And it never leaves you hanging: every problem comes with **what to do next**.
+And when nothing is broken, the app doesn't just shrug and say "all clear". It
+measures your download and upload speed, how fast your connection answers, how
+steady that is (jitter) and how much it drops (packet loss) — then tells you
+what you can actually **do** with it:
+
+- 💚 *"Your Wi-Fi is good for video calls, HD films, gaming and everything else"*
+- 💛 *"Good for everything, except 4K films and fast online games"*
+- 🧡 *"Too weak for video calls and HD films"* — with the reason, and what to try
+
+Because a connection can be perfectly "connected" and still ruin your meeting.
+And if your video call won't hold but your voice will, it says so: *"turn your
+camera off — your connection can still carry the audio."*
+
+It never leaves you hanging: every problem comes with **what to do next**.
 When the app can fix it itself, it asks first — *"Wi-Fi is off. Turn it on?"* — and only acts when you say yes. You're always in charge. 💪
 
 ### 2️⃣ "Check it" — is this one website down, or is it just me?
@@ -68,6 +80,18 @@ It's free, it's tiny, it asks for nothing, and it changes nothing on your phone 
 SimplyInternet runs its checks to help you — it doesn't collect your personal
 data. Any action that changes a setting on your phone happens only after you
 confirm it.
+
+**About mobile data.** Measuring speed means moving real data (roughly 5–15 MB,
+depending on how fast your line is). The app measures whatever connection your
+phone is already using, and never switches it for you, so your mobile data is
+only used when:
+
+1. Wi-Fi is not connected — mobile data *is* your Internet, so that's what gets
+   tested; or
+2. you tested over Wi-Fi and then chose to repeat the test over mobile data.
+
+The app never quietly runs a speed test over mobile data while Wi-Fi is working,
+and never runs one in the background — checks only happen when you tap a button.
 
 ---
 

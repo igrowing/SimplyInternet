@@ -1,12 +1,16 @@
 import 'dart:async';
 
+import 'package:simply_internet/features/diagnostics/domain/entities/capability.dart';
 import 'package:simply_internet/features/diagnostics/domain/entities/check_endpoints.dart';
+import 'package:simply_internet/features/diagnostics/domain/entities/data_usage.dart';
 import 'package:simply_internet/features/diagnostics/domain/entities/diagnosis_report.dart';
+import 'package:simply_internet/features/diagnostics/domain/entities/link_quality.dart';
 import 'package:simply_internet/features/diagnostics/domain/entities/network_facts.dart';
 import 'package:simply_internet/features/diagnostics/domain/entities/solution.dart';
 import 'package:simply_internet/features/diagnostics/domain/entities/verdict.dart';
 import 'package:simply_internet/features/diagnostics/domain/entities/verdict_catalog.dart';
 import 'package:simply_internet/features/diagnostics/domain/repositories/network_probe.dart';
+import 'package:simply_internet/features/diagnostics/domain/usecases/assess_capability.dart';
 
 /// Coarse progress phases surfaced to the UI. The individual probes now run
 /// concurrently, so the UI only distinguishes "checking the link" from the
@@ -18,13 +22,24 @@ enum DiagnosisPhase { connection, running, done }
 /// After a fast local connectivity gate, every network probe is fired off
 /// concurrently to minimise total wait time; the gathered facts are then fed
 /// through the same ordered, short-circuiting decision tree — device link,
-/// router, captive portal, ISP/WAN, DNS, ports, throttling, ISP path — so the
-/// verdict categories stay mutually exclusive and deterministic regardless of
-/// the order the probes happen to finish in.
+/// router, captive portal, ISP/WAN, DNS, ports, ISP path — so the verdict
+/// categories stay mutually exclusive and deterministic regardless of the order
+/// the probes happen to finish in.
+///
+/// When that tree finds nothing broken the connection is not declared "all
+/// clear": the measured throughput, latency, jitter and packet loss are matched
+/// against what everyday activities need, because a link can be perfectly
+/// connected and still be unusable for a video call.
+///
+/// Mobile-data policy: every probe runs over the link the device is already
+/// using and the diagnosis never switches the medium itself. Mobile data is
+/// therefore only measured when Wi-Fi is not connected, or after the user has
+/// deliberately switched to it to repeat the test.
 class RunDiagnosis {
-  const RunDiagnosis(this._probe);
+  const RunDiagnosis(this._probe, [this._assess = const AssessCapability()]);
 
   final NetworkProbe _probe;
+  final AssessCapability _assess;
 
   Future<DiagnosisReport> call({
     void Function(DiagnosisPhase phase)? onPhase,
@@ -57,7 +72,6 @@ class RunDiagnosis {
     final rawF = _anyRawReachable();
     final dnsF = _probe.dnsResolves(kDnsProbeHost);
     final portsF = _probe.probeCommonPorts();
-    final speedF = _probe.measureSpeed();
     final pathF = _probe.tracePath(kPathProbeHost);
     final sitesF = _checkPopularSites();
 
@@ -67,6 +81,18 @@ class RunDiagnosis {
     final gwReachableF = (gateway != null && gatewayMatters)
         ? _probe.pingReachable(gateway)
         : Future<bool>.value(true);
+    // Kept separate from the reachability ping above on purpose: that one falls
+    // back to a TCP handshake so an ICMP-filtering router is not accused of
+    // being dead, while these samples must stay pure ICMP to mean anything as
+    // latency, jitter and loss.
+    final qualityF = _probe.measureLinkQuality(
+      gatewayIp: gatewayMatters ? gateway : null,
+    );
+    // The throughput test deliberately starts only once the idle samples are
+    // in: saturating the link first would inflate the very baseline the
+    // under-load figure is compared against. Both still overlap the DNS, port,
+    // portal and route probes, so no wall-clock time is added.
+    final speedF = qualityF.then((_) => _probe.measureThroughput());
 
     final (
       gwReachable,
@@ -77,6 +103,7 @@ class RunDiagnosis {
       speed,
       path,
       siteReport,
+      quality,
     ) = await (
       gwReachableF,
       captiveF,
@@ -86,7 +113,9 @@ class RunDiagnosis {
       speedF,
       pathF,
       sitesF,
+      qualityF,
     ).wait;
+    final linkQuality = quality.withLoadedRtt(speed.loadedRttMs);
 
     // ── 3. Evaluate the ordered decision tree over the gathered facts ─────
     note('Gateway: ${gateway ?? "unknown"}');
@@ -146,11 +175,6 @@ class RunDiagnosis {
       return _report(VerdictCatalog.portBlocked(blocked.first), log);
     }
 
-    note('Download: ${speed.ok ? "${speed.downloadMbps} Mbps" : "n/a"}');
-    if (speed.ok && speed.downloadMbps < kThrottleSuspicionMbps) {
-      return _report(VerdictCatalog.trafficShaping(speed.downloadMbps), log);
-    }
-
     note(
       'Path reached destination: ${path.reachedDestination} '
       '(last hop: ${path.lastRespondingHop ?? "n/a"})',
@@ -169,8 +193,101 @@ class RunDiagnosis {
       return _report(VerdictCatalog.noInternetIsp(), log);
     }
 
+    // ── 4. Nothing is broken: judge what the connection can actually do ───
+    final capability = _assess(speed: speed, quality: linkQuality);
+    _noteQuality(note, conn, speed, linkQuality, capability);
+    _noteTests(note, _probe.dataUsage());
+
+    final outcome = VerdictCatalog.capability(
+      assessment: capability,
+      medium: conn.kind,
+      speed: speed,
+      quality: linkQuality,
+    );
+
     phase(DiagnosisPhase.done);
-    return DiagnosisReport(verdict: VerdictCatalog.allClear(), log: log);
+    return DiagnosisReport(
+      verdict: outcome.verdict,
+      solution: outcome.solution,
+      capability: capability,
+      log: log,
+    );
+  }
+
+  /// Writes the measured figures into the technical log, saying which medium
+  /// they came from and which activities they do or do not support.
+  void _noteQuality(
+    void Function(String) note,
+    ConnectivityStatus conn,
+    SpeedResult speed,
+    LinkQuality quality,
+    CapabilityAssessment capability,
+  ) {
+    final medium = VerdictCatalog.mediumLabel(conn.kind);
+    note('Tested over: $medium');
+    if (conn.kind == ConnectivityKind.mobile) {
+      note(
+        'Mobile data was measured because it is the link in use '
+        '(Wi-Fi not connected, or you chose to retest over mobile)',
+      );
+    }
+    final down = speed.ok
+        ? '${speed.downloadMbps.toStringAsFixed(1)} Mbps'
+        : 'not measured';
+    final up = speed.uploadMbps == null
+        ? 'not measured'
+        : '${speed.uploadMbps!.toStringAsFixed(1)} Mbps';
+    note('Download: $down');
+    note('Upload: $up');
+    _noteLatency(note, 'Router', quality.gateway);
+    _noteLatency(note, 'Internet', quality.internet);
+    final loaded = speed.loadedRttMs;
+    if (loaded != null) {
+      final ratio = quality.bufferbloatRatio;
+      note(
+        'Response time while busy: ${loaded.round()} ms'
+        '${ratio == null ? "" : " (${ratio.toStringAsFixed(1)}x idle)"}',
+      );
+    }
+    for (final outcome in capability.outcomes) {
+      final short = outcome.shortfalls.map((s) => s.text).join(', ');
+      final state = outcome.supported ? 'yes' : 'no — $short';
+      note('Good for ${outcome.name}: $state');
+    }
+  }
+
+  void _noteLatency(
+    void Function(String) note,
+    String label,
+    LatencyStats stats,
+  ) {
+    if (!stats.ok) {
+      note('$label response time: no reply to ${stats.sent} probes');
+      return;
+    }
+    note(
+      '$label response time: ${stats.avgMs!.round()} ms avg '
+      '(min ${stats.minMs!.round()}, max ${stats.maxMs!.round()}), '
+      'jitter ${stats.jitterMs?.round() ?? "n/a"} ms, '
+      'loss ${stats.lossPercent!.round()}% '
+      '(${stats.received}/${stats.sent} replies)',
+    );
+  }
+
+  /// Lists exactly which tests ran and what they cost in data.
+  void _noteTests(void Function(String) note, DataUsage usage) {
+    if (usage.records.isEmpty) return;
+    note('Tests performed (${usage.records.length}):');
+    for (final r in usage.records) {
+      final sent = DataUsage.formatBytes(r.bytesSent);
+      final received = DataUsage.formatBytes(r.bytesReceived);
+      note('  • ${r.test} → ${r.target} (sent $sent, received $received)');
+    }
+    note(
+      'Data used by this diagnosis: '
+      '${DataUsage.formatBytes(usage.bytesSent)} sent, '
+      '${DataUsage.formatBytes(usage.bytesReceived)} received',
+    );
   }
 
   Future<bool> _anyRawReachable() async {

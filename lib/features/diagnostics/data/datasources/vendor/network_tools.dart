@@ -112,6 +112,69 @@ class NetworkTools {
     }
   }
 
+  /// Sends [count] ICMP echoes to [host] and returns the round-trip times that
+  /// came back, so the caller can derive latency, jitter and packet loss.
+  ///
+  /// One `ping -c <count> -i <interval>` process is preferred because it paces
+  /// the probes itself; when the platform's ping rejects a sub-second interval
+  /// the probes are sent one at a time instead. RTTs always come from ping's
+  /// own `time=` field, never from wall-clock timing around the subprocess, so
+  /// process start-up cost cannot inflate the jitter figure.
+  static Future<List<double>> pingRtts(
+    String host, {
+    required int count,
+    required Duration interval,
+  }) async {
+    final seconds = interval.inMilliseconds / 1000.0;
+    final budget =
+        Duration(milliseconds: interval.inMilliseconds * count) +
+        const Duration(seconds: 6);
+    try {
+      final result = await Process.run('ping', [
+        '-c',
+        count.toString(),
+        '-i',
+        seconds.toString(),
+        '-W',
+        '2',
+        host,
+      ], runInShell: false).timeout(budget);
+      final rtts = parsePingRtts('${result.stdout}${result.stderr}');
+      if (rtts.isNotEmpty) return rtts;
+    } on Exception {
+      // Fall through to the one-probe-at-a-time path below.
+    }
+
+    final rtts = <double>[];
+    for (var i = 0; i < count; i++) {
+      try {
+        final single = await Process.run('ping', [
+          '-c',
+          '1',
+          '-W',
+          '2',
+          host,
+        ], runInShell: false).timeout(const Duration(seconds: 4));
+        rtts.addAll(parsePingRtts('${single.stdout}${single.stderr}'));
+      } on Exception {
+        // A probe that never came back is packet loss, counted by the caller.
+      }
+    }
+    return rtts;
+  }
+
+  /// Extract every `time=<n> ms` value from ping [output].
+  @visibleForTesting
+  static List<double> parsePingRtts(String output) {
+    final timeRe = RegExp(r'time[=<]\s*([\d.]+)\s*ms');
+    final out = <double>[];
+    for (final match in timeRe.allMatches(output)) {
+      final value = double.tryParse(match.group(1)!);
+      if (value != null) out.add(value);
+    }
+    return out;
+  }
+
   /// Parse a single hop from a `ping -c 1 -t <TTL>` [output] against [destIp].
   /// Returns the replying hop IP (null if none), the per-probe RTT strings
   /// padded to three entries with '*' for non-responses, and whether the

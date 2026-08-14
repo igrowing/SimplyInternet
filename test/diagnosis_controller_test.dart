@@ -24,7 +24,10 @@ void main() {
     test('run() produces a done status with a verdict', () async {
       await controller.run();
       expect(controller.status, DiagnosisStatus.done);
-      expect(controller.report!.verdict.category, VerdictCategory.allClear);
+      expect(
+        controller.report!.verdict.category,
+        VerdictCategory.connectionGood,
+      );
     });
 
     test('reset() returns to idle', () async {

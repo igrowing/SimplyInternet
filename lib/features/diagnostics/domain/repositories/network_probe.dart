@@ -1,3 +1,5 @@
+import 'package:simply_internet/features/diagnostics/domain/entities/data_usage.dart';
+import 'package:simply_internet/features/diagnostics/domain/entities/link_quality.dart';
 import 'package:simply_internet/features/diagnostics/domain/entities/network_facts.dart';
 
 /// Abstraction over every network measurement the diagnosis engine needs.
@@ -30,8 +32,14 @@ abstract class NetworkProbe {
   /// otherwise-open ones indicates a firewall.
   Future<List<PortProbeResult>> probeCommonPorts();
 
-  /// A quick download throughput sample used only to flag possible shaping.
-  Future<SpeedResult> measureSpeed();
+  /// Latency, jitter and packet loss towards the router (when [gatewayIp] is
+  /// given) and towards the Internet. These are the plan-independent metrics
+  /// the degradation verdicts are built on.
+  Future<LinkQuality> measureLinkQuality({String? gatewayIp});
+
+  /// Time-boxed download followed by a time-boxed upload, plus the round-trip
+  /// time observed while the link was busy.
+  Future<SpeedResult> measureThroughput();
 
   /// Trace the route to [host] and report where (if anywhere) it dies.
   Future<IspPathResult> tracePath(String host);
@@ -41,4 +49,8 @@ abstract class NetworkProbe {
 
   /// Reachability of the popular sites relevant to [countryCode].
   Future<List<SiteReachability>> checkPopularSites(String? countryCode);
+
+  /// The checks performed so far and the payload they moved, for the
+  /// transparency section of the report.
+  DataUsage dataUsage();
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:simply_internet/features/diagnostics/domain/entities/capability.dart';
 import 'package:simply_internet/features/diagnostics/domain/entities/diagnosis_report.dart';
 import 'package:simply_internet/features/diagnostics/domain/entities/solution.dart';
 import 'package:simply_internet/features/diagnostics/presentation/controllers/diagnosis_controller.dart';
@@ -39,6 +40,10 @@ class ResultView extends StatelessWidget {
           style: theme.textTheme.bodyLarge,
         ),
         const SizedBox(height: 24),
+        if (report.capability != null) ...[
+          _CapabilityList(assessment: report.capability!),
+          const SizedBox(height: 16),
+        ],
         if (report.solution != null) ...[
           Card(
             color: theme.colorScheme.surfaceContainerHighest,
@@ -142,6 +147,54 @@ class ResultView extends StatelessWidget {
       case SolutionActionType.advisory:
         return Icons.info_outline;
     }
+  }
+}
+
+/// The full "good for …" list, collapsed by default: the headline already names
+/// the few activities that matter, this is for the user who wants all of them.
+class _CapabilityList extends StatelessWidget {
+  const _CapabilityList({required this.assessment});
+
+  final CapabilityAssessment assessment;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final fits = assessment.supported.length;
+    return ExpansionTile(
+      title: Text(
+        'What your connection can do ($fits of '
+        '${assessment.outcomes.length})',
+      ),
+      childrenPadding: const EdgeInsets.symmetric(horizontal: 8),
+      children: [
+        for (final outcome in assessment.outcomes)
+          ListTile(
+            dense: true,
+            leading: Icon(
+              outcome.supported ? Icons.check_circle : Icons.cancel,
+              color: outcome.supported
+                  ? Colors.green.shade700
+                  : Colors.amber.shade800,
+            ),
+            title: Text(outcome.name),
+            subtitle: outcome.supported
+                ? null
+                : Text(
+                    outcome.shortfalls.map((s) => s.text).join(', '),
+                    style: theme.textTheme.bodySmall,
+                  ),
+          ),
+        if (!assessment.uploadMeasured)
+          Padding(
+            padding: const EdgeInsets.all(8),
+            child: Text(
+              'Upload could not be measured, so upload needs were not judged.',
+              style: theme.textTheme.bodySmall,
+            ),
+          ),
+      ],
+    );
   }
 }
 

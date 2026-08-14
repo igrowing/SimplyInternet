@@ -1,3 +1,5 @@
+import 'package:simply_internet/features/diagnostics/domain/entities/capability.dart';
+import 'package:simply_internet/features/diagnostics/domain/entities/link_quality.dart';
 import 'package:simply_internet/features/diagnostics/domain/entities/network_facts.dart';
 import 'package:simply_internet/features/diagnostics/domain/entities/solution.dart';
 import 'package:simply_internet/features/diagnostics/domain/entities/verdict.dart';
@@ -240,34 +242,6 @@ class VerdictCatalog {
     );
   }
 
-  static ({Verdict verdict, Solution solution}) trafficShaping(
-    double downloadMbps,
-  ) {
-    final mbps = downloadMbps.toStringAsFixed(1);
-    return (
-      verdict: Verdict(
-        category: VerdictCategory.trafficShaping,
-        title: 'Possible throttling',
-        detail:
-            'Everything is connected, but the measured speed is very low '
-            '(about $mbps Mbps). Your traffic may be throttled or shaped. '
-            'This is a possibility, not a certainty.',
-        detailArg: mbps,
-      ),
-      solution: const Solution(
-        message:
-            'Try again at a different time, on a different network, or '
-            'using mobile data (not WiFi), or over a VPN to see if the '
-            'speed recovers. If only certain apps '
-            'are slow, your provider may be shaping that type of traffic — '
-            'contact them to confirm your plan speed.',
-        actions: [
-          SolutionAction(type: SolutionActionType.retry, label: 'Test again'),
-        ],
-      ),
-    );
-  }
-
   static ({Verdict verdict, Solution solution}) ispPathProblem(
     IspPathResult path,
   ) {
@@ -295,13 +269,178 @@ class VerdictCatalog {
     );
   }
 
-  static Verdict allClear() => const Verdict(
-    category: VerdictCategory.allClear,
-    title: 'All clear — no problem found',
-    detail:
-        'Your device is connected, the router responds, DNS works, '
-        'no ports are blocked and the Internet is reachable at a normal '
-        'speed. If something still feels wrong, it may be a specific app '
-        'or website rather than your connection.',
-  );
+  /// The verdict for a connection that is not broken: what it can and cannot
+  /// carry, rather than a bare "no problem found" that says nothing about a
+  /// link which is technically alive but too weak to use.
+  static ({Verdict verdict, Solution? solution}) capability({
+    required CapabilityAssessment assessment,
+    required ConnectivityKind medium,
+    required SpeedResult speed,
+    required LinkQuality quality,
+  }) {
+    final mediumName = mediumLabel(medium);
+    final measured = _measurements(medium, speed, quality);
+
+    switch (assessment.kind) {
+      case CapabilityCase.good:
+        final uses = _names(_mostDemanding(assessment.supported, 4));
+        return (
+          verdict: Verdict(
+            category: VerdictCategory.connectionGood,
+            title: 'Your $mediumName is good for $uses — and more',
+            detail:
+                '$measured If something still feels wrong, it is most likely '
+                'that one app or website, not your connection.',
+          ),
+          solution: null,
+        );
+
+      case CapabilityCase.mostlyGood:
+        final failing = _names(assessment.unsupported.take(3).toList());
+        return (
+          verdict: Verdict(
+            category: VerdictCategory.connectionMostlyGood,
+            title: 'Your $mediumName is good for everything except $failing',
+            detail: '$measured ${_because(assessment)}',
+            detailArg: failing,
+          ),
+          solution: _advice(assessment, medium, quality),
+        );
+
+      case CapabilityCase.degraded:
+        final failing = _names(assessment.unsupported.take(4).toList());
+        return (
+          verdict: Verdict(
+            category: VerdictCategory.connectionDegraded,
+            title: 'Your $mediumName is too weak for $failing',
+            detail: '$measured ${_because(assessment)}',
+            detailArg: failing,
+          ),
+          solution: _advice(assessment, medium, quality),
+        );
+    }
+  }
+
+  /// How the tested link is named in every sentence the user reads, so the
+  /// report always states which medium the figures came from.
+  static String mediumLabel(ConnectivityKind kind) {
+    switch (kind) {
+      case ConnectivityKind.wifi:
+        return 'Wi-Fi';
+      case ConnectivityKind.mobile:
+        return 'mobile data';
+      case ConnectivityKind.ethernet:
+        return 'wired connection';
+      case ConnectivityKind.vpn:
+        return 'VPN connection';
+      case ConnectivityKind.other:
+      case ConnectivityKind.none:
+        return 'connection';
+    }
+  }
+
+  static String _measurements(
+    ConnectivityKind medium,
+    SpeedResult speed,
+    LinkQuality quality,
+  ) {
+    final parts = <String>[
+      if (speed.ok) 'download ${_rate(speed.downloadMbps)} Mbps',
+      if (speed.uploadMbps != null)
+        'upload ${_rate(speed.uploadMbps!)} Mbps'
+      else
+        'upload not measured',
+      if (quality.internet.avgMs != null)
+        'response time ${quality.internet.avgMs!.round()} ms',
+      if (quality.internet.jitterMs != null)
+        'jitter ${quality.internet.jitterMs!.round()} ms',
+      if (quality.internet.ok)
+        'packet loss ${quality.internet.lossPercent!.round()}%',
+    ];
+    if (parts.isEmpty) return 'Measured over ${mediumLabel(medium)}.';
+    return 'Measured over ${mediumLabel(medium)}: ${parts.join(', ')}.';
+  }
+
+  /// The one sentence that turns the list of failing activities into a cause.
+  static String _because(CapabilityAssessment assessment) {
+    final blame = assessment.worstShortfalls
+        .take(2)
+        .map((s) => s.text)
+        .join(' and ');
+    final reason = blame.isEmpty ? '' : 'The limit is $blame. ';
+    final camera = assessment.voiceCallStillFits
+        ? 'Turn your camera off — your connection can still carry the audio. '
+        : '';
+    final missing = assessment.uploadMeasured
+        ? ''
+        : 'The upload test could not run, so upload was not judged. ';
+    return '$reason$camera$missing'.trimRight();
+  }
+
+  static Solution _advice(
+    CapabilityAssessment assessment,
+    ConnectivityKind medium,
+    LinkQuality quality,
+  ) {
+    final gatewayWeak =
+        quality.gateway.ok &&
+        ((quality.gateway.avgMs ?? 0) > 20 ||
+            (quality.gateway.lossPercent ?? 0) > 1);
+    final saturated = (quality.bufferbloatRatio ?? 1) > 3;
+
+    final String message;
+    if (medium == ConnectivityKind.wifi && gatewayWeak) {
+      message =
+          'Your router answers slowly or drops packets, which points at the '
+          'Wi-Fi itself rather than your provider. Move closer to the '
+          'router, or try the 5 GHz network if your router offers one.';
+    } else if (saturated) {
+      message =
+          'The connection slows down sharply while it is busy, which is what '
+          'happens when something else on your network (a download, a backup, '
+          'a TV) is using the line. Pause it and test again.';
+    } else if (assessment.throughputOnlyProblem) {
+      message =
+          'Response time and packet loss are clean, so only the speed is '
+          'short. That is normal on a slower plan — and if you pay for more, '
+          'your provider may be throttling the line. Test again at another '
+          'time or on another network to compare.';
+    } else {
+      message =
+          'Your device and router are fine, so the weak part is beyond your '
+          'router. Test again in a few minutes; if it stays this way, report '
+          'the response time and packet loss above to your provider.';
+    }
+
+    return Solution(
+      message: message,
+      actions: const [
+        SolutionAction(type: SolutionActionType.retry, label: 'Test again'),
+      ],
+    );
+  }
+
+  /// The most demanding activities that do fit, so "good for …" mentions what
+  /// is impressive rather than what is trivial.
+  static List<UseCaseOutcome> _mostDemanding(
+    List<UseCaseOutcome> outcomes,
+    int count,
+  ) {
+    final ranked = outcomes.toList()
+      ..sort(
+        (a, b) => b.requirement.downMbps.compareTo(a.requirement.downMbps),
+      );
+    return ranked.take(count).toList();
+  }
+
+  static String _names(List<UseCaseOutcome> outcomes) {
+    final names = outcomes.map((o) => o.name).toList();
+    if (names.isEmpty) return 'anything demanding';
+    if (names.length == 1) return names.first;
+    return '${names.sublist(0, names.length - 1).join(', ')} '
+        'and ${names.last}';
+  }
+
+  static String _rate(double value) =>
+      value >= 10 ? value.round().toString() : value.toStringAsFixed(1);
 }

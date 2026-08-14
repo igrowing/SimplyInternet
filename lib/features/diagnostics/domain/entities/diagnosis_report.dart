@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter/foundation.dart';
+import 'package:simply_internet/features/diagnostics/domain/entities/capability.dart';
 import 'package:simply_internet/features/diagnostics/domain/entities/solution.dart';
 import 'package:simply_internet/features/diagnostics/domain/entities/verdict.dart';
 
@@ -11,13 +12,19 @@ class DiagnosisReport extends Equatable {
   const DiagnosisReport({
     required this.verdict,
     this.solution,
+    this.capability,
     this.log = const [],
   });
 
   final Verdict verdict;
   final Solution? solution;
+
+  /// What the working connection can carry. Null when the connection is broken:
+  /// there is nothing to measure, so no capability list is shown.
+  final CapabilityAssessment? capability;
+
   final List<String> log;
 
   @override
-  List<Object?> get props => [verdict, solution, log];
+  List<Object?> get props => [verdict, solution, capability, log];
 }

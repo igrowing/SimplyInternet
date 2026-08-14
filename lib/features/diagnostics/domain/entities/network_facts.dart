@@ -71,19 +71,56 @@ class PortProbeResult extends Equatable {
   List<Object?> get props => [port, service, reachable];
 }
 
-/// Outcome of a lightweight throughput measurement.
+/// Outcome of the time-boxed throughput measurement.
+///
+/// Download and upload are measured one after the other: run together they
+/// contend for the same link and both figures come out wrong. [uploadMbps] is
+/// null when the upload probe could not run, which the report states rather
+/// than treating as a pass.
 @immutable
 class SpeedResult extends Equatable {
-  const SpeedResult({required this.downloadMbps, required this.ok});
+  const SpeedResult({
+    required this.downloadMbps,
+    required this.ok,
+    this.uploadMbps,
+    this.bytesReceived = 0,
+    this.bytesSent = 0,
+    this.loadedRttMs,
+  });
 
   /// The measurement could not be taken (no server, error).
-  const SpeedResult.unavailable() : downloadMbps = 0, ok = false;
+  const SpeedResult.unavailable()
+    : downloadMbps = 0,
+      ok = false,
+      uploadMbps = null,
+      bytesReceived = 0,
+      bytesSent = 0,
+      loadedRttMs = null;
 
   final double downloadMbps;
+
+  /// Whether the download figure is usable.
   final bool ok;
 
+  /// Measured upload rate, or null when not measured.
+  final double? uploadMbps;
+
+  final int bytesReceived;
+  final int bytesSent;
+
+  /// Mean round-trip time seen while the link was busy downloading, used to
+  /// expose saturation as a ratio against the idle latency.
+  final double? loadedRttMs;
+
   @override
-  List<Object?> get props => [downloadMbps, ok];
+  List<Object?> get props => [
+    downloadMbps,
+    ok,
+    uploadMbps,
+    bytesReceived,
+    bytesSent,
+    loadedRttMs,
+  ];
 }
 
 /// Outcome of tracing the route to a public destination.
