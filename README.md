@@ -71,6 +71,16 @@ confirm it.
 
 ---
 
+## How it works
+
+### "Find the problem and give solution"
+TBD.
+
+### "Check it"
+TBD.
+
+---
+
 ## How to contribute
 
 * [Open an issue](https://github.com/igrowing/SimplyInternet/issues) if you found a bug or want a new feature.
