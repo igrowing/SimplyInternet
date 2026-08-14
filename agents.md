@@ -34,7 +34,7 @@ Agents must use modern Flutter API patterns. Do not copy legacy (2022 or older) 
 * **Linting:** Code must pass standard strict lint rules (`package:very_good_analysis`). 
 * **Formatting:** Lines must not exceed **80 characters** to preserve structural integrity inside token contexts. Run `dart format .` automatically on any modified files.
 * **Code Generation:** Code-generated companion files (`*.g.dart`, `*.freezed.dart`) must never be manually modified. If modifications require schema updates, run the build runner shell command.
-* **Versions**: automatically increase minor version of the app on every commit. The minor version identifies is a number between last does and a plus sign in pubspec.yml under `version` entry. Change major or middle version number only when explicitly requested by the developer.
+* **Versions**: automatically increase minor version of the app on every commit. The minor version identifies is a number between last does and a plus sign in pubspec.yml under `version` entry. Change major or middle version number only when explicitly requested by the developer. Do not change the number after sign plus (+) in the version.
 
 ---
 
@@ -46,7 +46,7 @@ Agents must use modern Flutter API patterns. Do not copy legacy (2022 or older) 
 
 ## 4. Operational Steps & Verification Loop
 
-When assigned a development ticket or bug fix, you must execute the task according to this chronological checklist. Do not skip steps.
+When assigned a development ticket or bug fix, you must execute the task according to this chronological checklist. Do not skip steps. Apply `kotlin.incremental=false` in `android\gradle.properties` if not applied yet.
 
 ### Step 1: Establish Environment Baseline
 Before changing a single line of production code, verify the codebase is in a functional state to isolate future errors:

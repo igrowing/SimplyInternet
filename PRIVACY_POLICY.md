@@ -72,7 +72,7 @@ router, generic 204 "connectivity check" endpoints (Google's
 public-IP/country lookup via Cloudflare's trace endpoint
 (`www.cloudflare.com/cdn-cgi/trace`), reachability of a few popular sites, DNS
 resolution, and an optional speed test against Cloudflare
-(`speed.cloudflare.com`) or Speedtest.net (`www.speedtest.net`) servers.
+(`speed.cloudflare.com`).
 
 None of these requests include your name, account details, or any identifier
 beyond your device's public IP address — which is inherent to how the
