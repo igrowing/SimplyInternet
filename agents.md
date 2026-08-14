@@ -65,6 +65,8 @@ Before changing a single line of production code, verify the codebase is in a fu
   * On removal of obsolete, non-used, merged functions remove according unit tests.
   * On changes in functions adapt related unit tests accordingly. 
 
+4. **Don't repeat yourself** restriction - when any functionality is needed to implement, review existing classes and function for similar functionality. Often you will find that what's needed is already implemented. Then just call and reuse it. If slight modification to the existing functionality is needed and that function has only 1-2 invocations, enhance that function and adapt the existing invokations. If signigicant modification needed or too many calls exist to the implemented function then add a function which has larger functional span and then the older, narrower span function, can use the new one to avoid code duplication. Add new functions only if there is no similar fucntionality is already implemented.
+
 ### Step 3: Self-Correction & Automated Cleaning
 Before presenting your changes for human review, clean your workspace of transient tracking code:
 
