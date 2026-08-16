@@ -50,7 +50,9 @@ void main() {
         ),
       ).call('nope.invalid');
       expect(report.headline, "This web address can't be found");
-      expect(findingWithTitle(report, "The address doesn't exist"), isNotNull);
+      // The bad name is one problem, not five: no separate "not registered",
+      // "did not respond" or "down for everyone" lines beside it.
+      expect(report.findings.single.title, "The address doesn't exist");
     });
 
     test('reports an expired domain registration', () async {
@@ -105,9 +107,13 @@ void main() {
       ).call('https://geo.example');
       expect(report.headline, 'The website seems blocked for you');
       expect(
-        findingWithTitle(report, 'Blocked for you, but up elsewhere'),
+        findingWithTitle(
+          report,
+          'Blocked on your connection or in your country',
+        ),
         isNotNull,
       );
+      expect(report.findings, hasLength(1));
     });
 
     test('detects a site that is down for everyone', () async {
@@ -118,7 +124,11 @@ void main() {
         ),
       ).call('https://dead.example');
       expect(report.headline, 'The website is down for everyone');
-      expect(findingWithTitle(report, 'Down for everyone'), isNotNull);
+      expect(
+        findingWithTitle(report, 'The website is down for everyone'),
+        isNotNull,
+      );
+      expect(report.findings, hasLength(1));
     });
 
     test('still reports success when the outage cross-check throws', () async {
@@ -146,9 +156,13 @@ void main() {
         ).call('https://geo.example');
         expect(report.headline, 'The website seems blocked for you');
         expect(
-          findingWithTitle(report, 'Up worldwide, but not for you'),
+          findingWithTitle(
+            report,
+            'Blocked on your connection or in your country',
+          ),
           isNotNull,
         );
+        expect(report.findings, hasLength(1));
       },
     );
 
@@ -164,10 +178,9 @@ void main() {
         ),
       ).call('https://dead.example');
       expect(report.headline, 'The website is down for everyone');
-      expect(
-        findingWithTitle(report, 'Independent check agrees: down for everyone'),
-        isNotNull,
-      );
+      final only = report.findings.single;
+      expect(only.title, 'The website is down for everyone');
+      expect(only.detail, contains('8 regions of websitedown.org'));
     });
 
     test('outage cross-check flags geo-fencing on a working site', () async {
@@ -184,7 +197,9 @@ void main() {
         ),
       ).call('https://geo-ok.example');
       expect(report.reachable, isTrue);
-      expect(findingWithTitle(report, 'Restricted in some regions'), isNotNull);
+      final only = report.findings.single;
+      expect(only.title, 'Works for you, but blocked in some countries');
+      expect(only.severity, UrlSeverity.warning);
     });
 
     test('outage cross-check suggests a working alternate host', () async {
@@ -221,10 +236,10 @@ void main() {
       ).call('example.com');
       expect(report.headline, 'The website works');
       expect(report.worst, UrlSeverity.ok);
-      expect(
-        findingWithTitle(report, 'Confirmed working worldwide'),
-        isNotNull,
-      );
+      // One green message, not one per source of good news.
+      final only = report.findings.single;
+      expect(only.title, 'The website works');
+      expect(only.detail, contains('websitedown.org'));
     });
 
     // Regression: rdap.org returns 404 for registries it does not cover
@@ -270,9 +285,13 @@ void main() {
       expect(findingWithTitle(report, 'Domain is not registered'), isNull);
       expect(findingWithTitle(report, 'The website did not respond'), isNull);
       expect(
-        findingWithTitle(report, 'Up worldwide, but not for you'),
+        findingWithTitle(
+          report,
+          'Blocked on your connection or in your country',
+        ),
         isNotNull,
       );
+      expect(report.findings, hasLength(1));
       // A block on the user's side is a warning, not a scary red "broken".
       expect(report.worst, UrlSeverity.warning);
     });
@@ -313,12 +332,11 @@ void main() {
         ),
       ).call('http://10.0.2.2:8080/404');
       expect(report.headline, 'The website answered with a problem (404)');
-      expect(findingWithTitle(report, 'Down for everyone'), isNull);
       expect(
-        findingWithTitle(report, 'Independent check agrees: down for everyone'),
+        findingWithTitle(report, 'The website is down for everyone'),
         isNull,
       );
-      expect(findingWithTitle(report, 'Page not found (404)'), isNotNull);
+      expect(report.findings.single.title, 'Page not found (404)');
     });
 
     test('uses the registrable domain under a multi-label suffix', () async {

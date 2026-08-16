@@ -73,38 +73,6 @@ class CheckUrl {
       outageF,
     ).wait;
 
-    final elapsed = fetch.elapsedMs != null ? '${fetch.elapsedMs}ms' : '';
-    final httpLine =
-        'HTTP: reached=${fetch.reached} status=${fetch.statusCode ?? "-"} '
-        'final=${fetch.finalUrl ?? "-"} $elapsed';
-    final tlsLine =
-        'TLS: checked=${tls.checked} valid=${tls.valid} '
-        'expiry=${tls.expiry ?? "-"} ${tls.issue ?? ""}';
-    final domainLine =
-        'Domain($registrable): checked=${domain.checked} '
-        'exists=${domain.exists} expired=${domain.expired} '
-        'expiry=${domain.expiry ?? "-"}';
-    final regionLine =
-        'Regions: available=${regions.available} '
-        '${regions.reachable}/${regions.total} reachable, '
-        'blocked=${regions.blockedCountries.join(",")}';
-    final outageLine =
-        'Outage x-check (${outage.source}): available=${outage.available} '
-        'verdict=${outage.verdict.isEmpty ? "-" : outage.verdict} '
-        '${outage.up}/${outage.total} up, blocked=${outage.likelyBlocked}';
-    final log = <String>[
-      'URL: $url',
-      'DNS resolves: $dnsOk',
-      httpLine,
-      if (fetch.error != null) 'HTTP error: ${fetch.error}',
-      if (isHttps) tlsLine,
-      if (registrable != null) domainLine,
-      for (final p in ports)
-        'Port ${p.port}/${p.service}: ${p.open ? "open" : "closed"}',
-      regionLine,
-      outageLine,
-    ];
-
     // Positive evidence the site genuinely exists, gathered from any source.
     // Used to stop one unreliable signal (e.g. an RDAP 404 for a registry
     // rdap.org does not cover, like .il) from producing a misleading verdict.
@@ -116,37 +84,144 @@ class CheckUrl {
         fetch.reached ||
         upElsewhere ||
         (domain.checked && domain.exists);
-    // Our own probe failed, yet the site is demonstrably up somewhere else:
-    // this is a block/geo-restriction on the user's side, not a dead site.
-    final blockedForYou = !fetch.isSuccess && upElsewhere;
 
-    final findings = <UrlFinding>[];
-
-    _addDnsAndDomain(
-      findings,
-      host,
-      hostIsIp,
-      dnsOk,
-      domain,
-      existsEvidence,
-      fetch,
+    // Exactly one conclusion: every source is reconciled into a single reason
+    // with a single set of actions, so the user never has to choose between
+    // several contradictory explanations of one failure.
+    final conclusion = _conclude(
+      url: url,
+      hostIsIp: hostIsIp,
+      dnsOk: dnsOk,
+      fetch: fetch,
+      tls: tls,
+      domain: domain,
+      regions: regions,
+      outage: outage,
+      upElsewhere: upElsewhere,
+      existsEvidence: existsEvidence,
     );
-    _addHttp(findings, fetch, blockedForYou);
-    if (isHttps) _addTls(findings, tls);
-    _addPorts(findings, url, ports);
-    _addRegions(findings, fetch, regions);
-    _addOutageCrossCheck(findings, fetch, outage);
 
-    findings.sort((a, b) => b.severity.index.compareTo(a.severity.index));
+    final findings = <UrlFinding>[
+      conclusion.finding,
+      // Only extras that add an action the conclusion does not already give.
+      ..._extras(
+        url: url,
+        fetch: fetch,
+        domain: domain,
+        ports: ports,
+        outage: outage,
+      ),
+    ];
 
     return UrlCheckReport(
       url: url.toString(),
       reachable: fetch.isSuccess,
-      headline: _headline(fetch, dnsOk, domain, regions, outage, upElsewhere),
+      headline: conclusion.headline,
       findings: findings,
-      log: log,
+      log: _log(
+        url: url,
+        registrable: registrable,
+        isHttps: isHttps,
+        dnsOk: dnsOk,
+        fetch: fetch,
+        tls: tls,
+        domain: domain,
+        ports: ports,
+        regions: regions,
+        outage: outage,
+      ),
     );
   }
+
+  // ── Technical details ────────────────────────────────────────────────────
+
+  /// The technical log, grouped under headings and listing every check that
+  /// ran — including each vantage point the site was opened from — so the
+  /// user can see exactly what was tested rather than a bare count.
+  List<String> _log({
+    required Uri url,
+    required String? registrable,
+    required bool isHttps,
+    required bool dnsOk,
+    required HttpFetchResult fetch,
+    required TlsInfo tls,
+    required DomainInfo domain,
+    required List<UrlPortResult> ports,
+    required RegionReport regions,
+    required OutageReport outage,
+  }) {
+    final elapsed = fetch.elapsedMs != null ? '${fetch.elapsedMs} ms' : '-';
+    final registration = domain.checked
+        ? 'exists ${_yesNo(domain.exists)}, '
+              'expired ${_yesNo(domain.expired)}, '
+              'expiry ${_date(domain.expiry)}'
+        : 'not checked';
+    final String certificate;
+    if (!tls.checked) {
+      certificate = 'not checked';
+    } else if (tls.valid) {
+      certificate = 'valid, expires ${_date(tls.expiry)}';
+    } else {
+      certificate = 'not trusted${tls.issue != null ? " (${tls.issue})" : ""}';
+    }
+    final outageSummary =
+        'verdict ${outage.verdict.isEmpty ? "-" : outage.verdict}, '
+        'reached from ${outage.up} of ${outage.total} regions, '
+        'likely blocked in ${outage.likelyBlocked}';
+    return <String>[
+      '## Address',
+      '- URL: $url',
+      '- Name resolves (DNS): ${_yesNo(dnsOk)}',
+      if (registrable != null) '- Registration ($registrable): $registration',
+      '',
+      '## From this device',
+      '- Opened the page: ${_yesNo(fetch.reached)}',
+      '- Status code: ${fetch.statusCode ?? "-"}',
+      '- Time to answer: $elapsed',
+      if (fetch.finalUrl != null) '- Final address: ${fetch.finalUrl}',
+      if (fetch.error != null) '- Error: ${fetch.error}',
+      if (isHttps) '- Certificate: $certificate',
+      if (ports.isNotEmpty) ...[
+        '',
+        '## Ports',
+        for (final p in ports)
+          '- ${p.port} (${p.service}): ${p.open ? "open" : "closed"}',
+      ],
+      '',
+      '## From other countries (check-host.net)',
+      if (!regions.available)
+        '- Not available for this check'
+      else ...[
+        '- Reached from ${regions.reachable} of ${regions.total} locations',
+        for (final probe in regions.probes)
+          '- ${probe.location}: ${probe.reachable ? "reached" : "failed"}',
+      ],
+      '',
+      '## Independent outage check (${outage.source})',
+      if (!outage.available)
+        '- Not available for this check'
+      else ...[
+        '- Summary: $outageSummary',
+        for (final probe in outage.probes) _probeLine(probe),
+        if (outage.alternateHost != null) _alternateLine(outage),
+      ],
+    ];
+  }
+
+  static String _probeLine(RegionProbe probe) {
+    final status = probe.statusCode != null ? ' (${probe.statusCode})' : '';
+    return '- ${probe.location}: '
+        '${probe.reachable ? "reached" : "failed"}$status';
+  }
+
+  static String _alternateLine(OutageReport outage) =>
+      '- Alternate address ${outage.alternateHost}: '
+      '${outage.alternateHostUp ? "reached" : "failed"}';
+
+  static String _yesNo(bool value) => value ? 'yes' : 'no';
+
+  static String _date(DateTime? value) =>
+      value == null ? '-' : value.toIso8601String().split('T').first;
 
   // ── URL parsing ────────────────────────────────────────────────────────
 
@@ -239,130 +314,290 @@ class CheckUrl {
     return lastTwo;
   }
 
-  // ── Finding builders ─────────────────────────────────────────────────────
+  // ── Single conclusion ────────────────────────────────────────────────────
 
-  void _addDnsAndDomain(
-    List<UrlFinding> out,
-    String host,
-    bool hostIsIp,
-    bool dnsOk,
-    DomainInfo domain,
-    bool existsEvidence,
-    HttpFetchResult fetch,
-  ) {
-    // Only claim the name does not exist when nothing else proves it does —
-    // otherwise a local DNS block would masquerade as a dead address.
+  /// Reconciles every probe into one reason plus the matching headline.
+  ///
+  /// The branches are mutually exclusive and ordered by how conclusive the
+  /// evidence is, so a single failure can never produce two explanations: a
+  /// name that resolves nowhere is a wrong address, a name that resolves but
+  /// answers nobody is an outage, and a name that answers others but not us
+  /// is a block on our side.
+  ({UrlFinding finding, String headline}) _conclude({
+    required Uri url,
+    required bool hostIsIp,
+    required bool dnsOk,
+    required HttpFetchResult fetch,
+    required TlsInfo tls,
+    required DomainInfo domain,
+    required RegionReport regions,
+    required OutageReport outage,
+    required bool upElsewhere,
+    required bool existsEvidence,
+  }) {
+    // An untrusted certificate outranks everything else: it explains a
+    // refused connection, and even on a page that did load it is the one
+    // thing the user must know before typing a password.
+    if (tls.checked && !tls.valid) {
+      final consequence = fetch.isSuccess
+          ? 'The page still loaded, but nothing you send to it is safe.'
+          : 'The connection was refused because of it.';
+      return (
+        finding: UrlFinding(
+          severity: fetch.isSuccess ? UrlSeverity.warning : UrlSeverity.problem,
+          title: 'Security certificate problem',
+          detail:
+              'The site HTTPS certificate could not be trusted'
+              '${tls.issue != null ? " (${tls.issue})" : ""}. $consequence Do '
+              'not enter passwords. Check that your device date and time are '
+              'correct; if they are, the site is misconfigured and only its '
+              'owner can fix it.',
+        ),
+        headline: 'The site security certificate is not trusted',
+      );
+    }
+    if (fetch.isSuccess) return _workingConclusion(fetch, regions, outage);
+    // The server itself answered: its status code is the reason, and no
+    // outside opinion may contradict a reply we hold in our hands.
+    if (fetch.reached && fetch.statusCode != null) {
+      return (
+        finding: _httpStatusFinding(fetch.statusCode!),
+        headline:
+            'The website answered with a problem '
+            '(${fetch.statusCode})',
+      );
+    }
+    if (upElsewhere) return _blockedConclusion(regions, outage);
     if (!hostIsIp && !dnsOk && !existsEvidence) {
-      out.add(
-        const UrlFinding(
+      final registry = domain.checked && !domain.exists
+          ? ' The domain registry has no registration for it either.'
+          : '';
+      return (
+        finding: UrlFinding(
           severity: UrlSeverity.problem,
           title: "The address doesn't exist",
           detail:
-              'The website name could not be found on the Internet. Check '
-              'the spelling of the address. If it is correct, the site may '
-              'have shut down or its domain may have lapsed.',
+              'The website name could not be found anywhere on the Internet.'
+              '$registry Check the spelling of the address. If it is spelled '
+              'correctly, the site has shut down or its domain has lapsed — '
+              'there is nothing to fix on your side.',
         ),
+        headline: "This web address can't be found",
       );
-    }
-    if (!domain.checked) return;
-    if (!domain.exists) {
-      // RDAP 404 is not authoritative: rdap.org does not cover every registry
-      // (e.g. .il). Never contradict solid evidence that the site is live.
-      if (existsEvidence) return;
-      out.add(
-        const UrlFinding(
-          severity: UrlSeverity.problem,
-          title: 'Domain is not registered',
-          detail:
-              'No registration exists for this domain. It was likely typed '
-              'wrong, or the previous owner let it expire and it is now free.',
-        ),
-      );
-      return;
     }
     if (domain.expired) {
-      // Registry says expired but the page still loads → stale RDAP or grace
-      // period; do not raise a scary red on a site that clearly works.
-      if (!fetch.isSuccess) {
-        out.add(
-          UrlFinding(
-            severity: UrlSeverity.problem,
-            title: 'Domain registration has expired',
-            detail:
-                'The owner appears to have let the domain lapse'
-                '${_expirySuffix(domain.expiry)}. Until they renew it, the '
-                'site will not work for anyone. There is nothing you can fix.',
-          ),
-        );
-      }
-      return;
+      return (
+        finding: UrlFinding(
+          severity: UrlSeverity.problem,
+          title: 'Domain registration has expired',
+          detail:
+              'The owner let the domain lapse'
+              '${_expirySuffix(domain.expiry)}. Until they renew it, the '
+              'site will not work for anyone. There is nothing you can fix.',
+        ),
+        headline: 'The site domain has expired',
+      );
     }
-    final expiry = domain.expiry;
-    if (expiry != null) {
-      final days = expiry.difference(DateTime.now()).inDays;
-      if (days >= 0 && days <= 30) {
+    if (regions.downEverywhere || outage.downEverywhere) {
+      final byRegions = '${regions.total} test locations';
+      final byOutage = '${outage.total} regions of ${outage.source}';
+      final sources = <String>[
+        if (regions.downEverywhere) byRegions,
+        if (outage.downEverywhere) byOutage,
+      ].join(' and ');
+      return (
+        finding: UrlFinding(
+          severity: UrlSeverity.problem,
+          title: 'The website is down for everyone',
+          detail:
+              'It could not be opened from $sources either, so the site is '
+              'down for everyone — not just you. There is nothing to fix on '
+              'your side; wait and try later.',
+        ),
+        headline: 'The website is down for everyone',
+      );
+    }
+    return (
+      finding: UrlFinding(
+        severity: UrlSeverity.problem,
+        title: 'The website did not respond',
+        detail:
+            'The address exists, but no reply came back from the server'
+            '${fetch.error != null ? " (${fetch.error})" : ""}. It is either '
+            'switched off or unreachable right now. Try again in a few '
+            'minutes, or on another network.',
+      ),
+      headline: 'The website is not responding',
+    );
+  }
+
+  /// The site loaded for the user. Regional restrictions are reported as the
+  /// single finding when present — a warning replaces the reassurance instead
+  /// of sitting beside it, so a mixed result reads as one message.
+  ({UrlFinding finding, String headline}) _workingConclusion(
+    HttpFetchResult fetch,
+    RegionReport regions,
+    OutageReport outage,
+  ) {
+    final blockedCountries = regions.blockedCountries;
+    final restricted = blockedCountries.isNotEmpty || outage.likelyBlocked > 0;
+    if (restricted) {
+      final where = blockedCountries.isNotEmpty
+          ? ' It was refused from ${blockedCountries.join(", ")}.'
+          : ' An independent check (${outage.source}) found it blocked in '
+                '${outage.likelyBlocked} of its ${outage.total} regions.';
+      return (
+        finding: UrlFinding(
+          severity: UrlSeverity.warning,
+          title: 'Works for you, but blocked in some countries',
+          detail:
+              'The page opened normally on your device (code '
+              '${fetch.statusCode}), so nothing is wrong with your '
+              'connection.$where If someone abroad cannot open it, that is '
+              'the site geo-restricting them, not a fault either of you can '
+              'fix.',
+        ),
+        headline: 'The website works for you',
+      );
+    }
+    final elsewhere = outage.available && outage.up > 0
+        ? ' An independent check (${outage.source}) also reached it from '
+              '${outage.up} of ${outage.total} regions.'
+        : regions.available && regions.reachableFromSome
+        ? ' It also loads from ${regions.reachable} of ${regions.total} other '
+              'countries.'
+        : '';
+    return (
+      finding: UrlFinding(
+        severity: UrlSeverity.ok,
+        title: 'The website works',
+        detail:
+            'The page answered normally (code ${fetch.statusCode}) from your '
+            'device.$elsewhere',
+      ),
+      headline: 'The website works',
+    );
+  }
+
+  /// The site is proven up elsewhere but not for us: one message covers both
+  /// readings of "you" — this device/network, and this country.
+  ({UrlFinding finding, String headline}) _blockedConclusion(
+    RegionReport regions,
+    OutageReport outage,
+  ) {
+    final byRegions =
+        'it loads from ${regions.reachable} of ${regions.total} other '
+        'countries';
+    final byOutage =
+        'an independent check (${outage.source}) reached it from '
+        '${outage.up} of ${outage.total} regions';
+    final evidence = <String>[
+      if (regions.available && regions.reachableFromSome) byRegions,
+      if (outage.available && outage.up > 0) byOutage,
+    ].join(', and ');
+    final blocked = regions.blockedCountries.isNotEmpty
+        ? ' Countries where it also failed: '
+              '${regions.blockedCountries.join(", ")}.'
+        : '';
+    return (
+      finding: UrlFinding(
+        severity: UrlSeverity.warning,
+        title: 'Blocked on your connection or in your country',
+        detail:
+            'The site is up — $evidence — but nothing came back on your '
+            'connection.$blocked Either the site refuses visitors from your '
+            'country, or your network, ISP or DNS is blocking it. A VPN set '
+            'to another country, mobile data instead of Wi-Fi, or a public '
+            'DNS such as 1.1.1.1 usually gets around it.',
+      ),
+      headline: 'The website seems blocked for you',
+    );
+  }
+
+  /// Extra findings that carry an action the conclusion does not: a slow but
+  /// working site, an alternate address that does work, a service listening
+  /// on an unusual port, and a registration about to lapse. Nothing here
+  /// repeats or contradicts the conclusion.
+  List<UrlFinding> _extras({
+    required Uri url,
+    required HttpFetchResult fetch,
+    required DomainInfo domain,
+    required List<UrlPortResult> ports,
+    required OutageReport outage,
+  }) {
+    final out = <UrlFinding>[];
+    final ms = fetch.elapsedMs;
+    if (fetch.isSuccess && ms != null && ms > 8000) {
+      out.add(
+        UrlFinding(
+          severity: UrlSeverity.warning,
+          title: 'The website is very slow',
+          detail:
+              'It took ${(ms / 1000).toStringAsFixed(1)} seconds to respond. '
+              'The site or your connection may be congested; try again later '
+              'or on a different network.',
+        ),
+      );
+    }
+    if (!fetch.isSuccess) {
+      final alt = outage.alternateHost;
+      if (alt != null && outage.alternateHostUp) {
         out.add(
           UrlFinding(
             severity: UrlSeverity.info,
-            title: 'Domain expires soon',
+            title: 'Try the "$alt" address',
             detail:
-                'The domain registration expires in $days day(s). This is '
-                'the domain owner concern, not a fault on your side.',
+                'The exact address did not work, but "$alt" did. You may '
+                'have left off (or added) a "www." — open $alt instead.',
           ),
         );
       }
+      out.addAll(_portHint(url, ports));
     }
+    if (fetch.isSuccess) out.addAll(_expiryHint(domain));
+    return out;
   }
 
-  void _addHttp(
-    List<UrlFinding> out,
-    HttpFetchResult fetch,
-    bool blockedForYou,
-  ) {
-    if (fetch.isSuccess) {
-      out.add(
-        UrlFinding(
-          severity: UrlSeverity.ok,
-          title: 'The website loaded',
-          detail:
-              'The page answered normally (code ${fetch.statusCode}) from '
-              'your device, so the service itself is up for you.',
-        ),
-      );
-      final ms = fetch.elapsedMs;
-      if (ms != null && ms > 8000) {
-        out.add(
-          UrlFinding(
-            severity: UrlSeverity.warning,
-            title: 'The website is very slow',
-            detail:
-                'It took ${(ms / 1000).toStringAsFixed(1)} seconds to '
-                'respond. The site or your connection may be congested; try '
-                'again later or on a different network.',
-          ),
-        );
-      }
-      return;
+  /// Suggests the alternate web port when the usual one is closed but the
+  /// alternate is open — the only case where a port number helps the user.
+  List<UrlFinding> _portHint(Uri url, List<UrlPortResult> ports) {
+    if (ports.isEmpty) return const [];
+    final isHttps = url.scheme == 'https';
+    final mainPort = isHttps ? 443 : 80;
+    final altPort = isHttps ? 8443 : 8080;
+    final main = _portResult(ports, mainPort);
+    final alt = _portResult(ports, altPort);
+    if (main == null || main.open || alt == null || !alt.open) {
+      return const [];
     }
-    if (!fetch.reached) {
-      // When the site is proven up elsewhere, "no response" is a block on the
-      // user's side; the geo/block findings explain it without the scary red.
-      if (!blockedForYou) {
-        out.add(
-          UrlFinding(
-            severity: UrlSeverity.problem,
-            title: 'The website did not respond',
-            detail:
-                'No reply came back from the server'
-                '${fetch.error != null ? " (${fetch.error})" : ""}. The other '
-                'checks below help tell whether it is down, blocked, or a '
-                'wrong address/port.',
-          ),
-        );
-      }
-      return;
-    }
-    out.add(_httpStatusFinding(fetch.statusCode!));
+    return [
+      UrlFinding(
+        severity: UrlSeverity.info,
+        title: 'Try adding a port number',
+        detail:
+            'The usual port $mainPort is closed, but port $altPort is open. '
+            'The service may live at '
+            '${url.scheme}://${url.host}:$altPort — try adding ":$altPort" '
+            'to the address.',
+      ),
+    ];
+  }
+
+  /// Warns the owner-side risk of a registration lapsing within a month.
+  List<UrlFinding> _expiryHint(DomainInfo domain) {
+    final expiry = domain.expiry;
+    if (!domain.checked || expiry == null || domain.expired) return const [];
+    final days = expiry.difference(DateTime.now()).inDays;
+    if (days < 0 || days > 30) return const [];
+    return [
+      UrlFinding(
+        severity: UrlSeverity.info,
+        title: 'Domain expires soon',
+        detail:
+            'The domain registration expires in $days day(s). That is the '
+            'site owner concern, not a fault on your side.',
+      ),
+    ];
   }
 
   UrlFinding _httpStatusFinding(int code) {
@@ -409,6 +644,15 @@ class CheckUrl {
               'The site is rate-limiting you. Wait a minute and try again, '
               'and avoid refreshing repeatedly.',
         );
+      case 451:
+        return const UrlFinding(
+          severity: UrlSeverity.warning,
+          title: 'Blocked for legal reasons (451)',
+          detail:
+              'The site is legally barred from serving your country or '
+              'region. It is not broken and nothing on your side is wrong. A '
+              'VPN set to another country is the only way around it.',
+        );
       case 500:
       case 502:
       case 503:
@@ -447,263 +691,6 @@ class CheckUrl {
               'a normal browser.',
         );
     }
-  }
-
-  void _addTls(List<UrlFinding> out, TlsInfo tls) {
-    if (!tls.checked) return;
-    if (!tls.valid) {
-      out.add(
-        UrlFinding(
-          severity: UrlSeverity.problem,
-          title: 'Security certificate problem',
-          detail:
-              'The site HTTPS certificate could not be trusted'
-              '${tls.issue != null ? " (${tls.issue})" : ""}. Do not enter '
-              'passwords. Check that your device date and time are correct; '
-              'if they are, the site is misconfigured.',
-        ),
-      );
-      return;
-    }
-    final expiry = tls.expiry;
-    if (expiry != null) {
-      final days = expiry.difference(DateTime.now()).inDays;
-      if (days >= 0 && days <= 14) {
-        out.add(
-          UrlFinding(
-            severity: UrlSeverity.warning,
-            title: 'Certificate expires soon',
-            detail:
-                'The security certificate expires in $days day(s). The site '
-                'still works for now; the owner should renew it.',
-          ),
-        );
-      }
-    }
-  }
-
-  void _addPorts(List<UrlFinding> out, Uri url, List<UrlPortResult> ports) {
-    if (ports.isEmpty) return;
-    final isHttps = url.scheme == 'https';
-    final mainPort = isHttps ? 443 : 80;
-    final altPort = isHttps ? 8443 : 8080;
-    final main = _portResult(ports, mainPort);
-    final alt = _portResult(ports, altPort);
-    if (main != null && !main.open && alt != null && alt.open) {
-      out.add(
-        UrlFinding(
-          severity: UrlSeverity.info,
-          title: 'Try adding a port number',
-          detail:
-              'The usual port $mainPort is closed, but port $altPort is '
-              'open. The service may live at '
-              '${url.scheme}://${url.host}:$altPort — try adding ":$altPort" '
-              'to the address.',
-        ),
-      );
-    }
-  }
-
-  void _addRegions(
-    List<UrlFinding> out,
-    HttpFetchResult fetch,
-    RegionReport regions,
-  ) {
-    if (!regions.available || regions.total == 0) return;
-    if (fetch.isSuccess) {
-      if (regions.blockedCountries.isNotEmpty) {
-        out.add(
-          UrlFinding(
-            severity: UrlSeverity.info,
-            title: 'Restricted in some regions',
-            detail:
-                'It works for you, but was blocked from '
-                '${regions.blockedCountries.join(", ")}. If someone elsewhere '
-                'cannot open it, that is likely geo-restriction.',
-          ),
-        );
-      }
-      return;
-    }
-    // The server answered us with an error code: it is reachable, so region
-    // "down/blocked" opinions would contradict the reply we just received.
-    // The HTTP status finding is authoritative here.
-    if (fetch.reached) return;
-    if (regions.downEverywhere) {
-      out.add(
-        const UrlFinding(
-          severity: UrlSeverity.problem,
-          title: 'Down for everyone',
-          detail:
-              'The site could not be reached from any of the test locations '
-              'around the world, so it is almost certainly down for '
-              'everyone — not just you. Wait and try later.',
-        ),
-      );
-      return;
-    }
-    if (regions.reachableFromSome) {
-      final where = regions.blockedCountries.isNotEmpty
-          ? ' (blocked from: ${regions.blockedCountries.join(", ")})'
-          : '';
-      out.add(
-        UrlFinding(
-          severity: UrlSeverity.warning,
-          title: 'Blocked for you, but up elsewhere',
-          detail:
-              'The site itself is fine — it loads from other countries, just '
-              'not from your connection$where. This is geo-blocking or a block '
-              'on your network/ISP, not a broken site. A VPN, mobile data, or '
-              'a different DNS often gets around it.',
-        ),
-      );
-    }
-  }
-
-  /// Cross-checks our own fetch result against an independent outage service
-  /// (websitedown.org), which probes from several continents. This confirms
-  /// "down for everyone" vs "blocked just for you" and flags geo-fencing.
-  void _addOutageCrossCheck(
-    List<UrlFinding> out,
-    HttpFetchResult fetch,
-    OutageReport o,
-  ) {
-    if (!o.available || o.total == 0) return;
-    final scope = '${o.up} of ${o.total} regions';
-    if (fetch.isSuccess) {
-      if (o.likelyBlocked > 0) {
-        out.add(
-          UrlFinding(
-            severity: UrlSeverity.info,
-            title: 'Restricted in some regions',
-            detail:
-                'It works for you, but an independent outage service '
-                '(${o.source}) found it blocked in ${o.likelyBlocked} of its '
-                '${o.total} test regions. If someone abroad cannot open it, '
-                'that is likely geo-restriction, not a fault on your side.',
-          ),
-        );
-        return;
-      }
-      out.add(
-        UrlFinding(
-          severity: UrlSeverity.ok,
-          title: 'Confirmed working worldwide',
-          detail:
-              'An independent outage service (${o.source}) also reached the '
-              'site from $scope, so it is genuinely up — not just cached for '
-              'you.',
-        ),
-      );
-      return;
-    }
-    // Server answered with an error code: it is reachable, so the outage
-    // service's "down/up/blocked elsewhere" narrative would contradict the
-    // reply. The HTTP status finding already explains the error.
-    if (fetch.reached) return;
-    if (o.downEverywhere) {
-      out.add(
-        UrlFinding(
-          severity: UrlSeverity.problem,
-          title: 'Independent check agrees: down for everyone',
-          detail:
-              'An independent outage service (${o.source}) could not reach the '
-              'site from any of its ${o.total} test regions either. The site '
-              'is down for everyone, not just you — there is nothing to fix on '
-              'your side; wait and try later.',
-        ),
-      );
-      return;
-    }
-    if (o.upEverywhere) {
-      out.add(
-        UrlFinding(
-          severity: UrlSeverity.warning,
-          title: 'Up worldwide, but not for you',
-          detail:
-              'An independent outage service (${o.source}) reached the site '
-              'from all $scope, yet it failed on your connection. The site is '
-              'fine — this is a block on your network/ISP or a geo-restriction, '
-              'not a fault you can fix on the site. Try mobile data, a '
-              'different DNS, or a VPN.',
-        ),
-      );
-      _maybeSuggestAlternate(out, o);
-      return;
-    }
-    if (o.likelyBlocked > 0) {
-      out.add(
-        UrlFinding(
-          severity: UrlSeverity.warning,
-          title: 'Blocked in some regions (geo-restriction)',
-          detail:
-              'An independent outage service (${o.source}) reached the site '
-              'from $scope but found it blocked in ${o.likelyBlocked} of them. '
-              'This is a sign of geo-fencing; a VPN set to an allowed country '
-              'usually gets around it.',
-        ),
-      );
-      _maybeSuggestAlternate(out, o);
-      return;
-    }
-    out.add(
-      UrlFinding(
-        severity: UrlSeverity.info,
-        title: 'Second opinion from $scope',
-        detail:
-            'An independent outage service (${o.source}) reports: '
-            '"${o.summary}".',
-      ),
-    );
-    _maybeSuggestAlternate(out, o);
-  }
-
-  void _maybeSuggestAlternate(List<UrlFinding> out, OutageReport o) {
-    final alt = o.alternateHost;
-    if (alt == null || !o.alternateHostUp) return;
-    out.add(
-      UrlFinding(
-        severity: UrlSeverity.info,
-        title: 'Try the "$alt" address',
-        detail:
-            'The exact address did not work, but "$alt" did. You may have '
-            'left off (or added) a "www." — open $alt instead.',
-      ),
-    );
-  }
-
-  String _headline(
-    HttpFetchResult fetch,
-    bool dnsOk,
-    DomainInfo domain,
-    RegionReport regions,
-    OutageReport outage,
-    bool upElsewhere,
-  ) {
-    if (fetch.isSuccess) return 'The website works';
-    // We got no response at all, yet the site is provably up elsewhere: this
-    // is a block/geo-fence on the user's side, not a dead address, and must
-    // win over the "can't be found"/"not registered" verdicts below. When the
-    // server DID answer (a 4xx/5xx) we fall through to the status verdict —
-    // that is a real server reply, not a network block.
-    if (!fetch.reached && upElsewhere) {
-      return 'The website seems blocked for you';
-    }
-    // The server actually answered us (a real 4xx/5xx). It is demonstrably
-    // reachable, so report the code - never "down for everyone" or
-    // "can't be found", which would contradict the reply we just received.
-    if (fetch.reached && fetch.statusCode != null) {
-      return 'The website answered with a problem (${fetch.statusCode})';
-    }
-    if (domain.checked && !domain.exists && !dnsOk) {
-      return 'This web address is not registered';
-    }
-    if (domain.expired) return 'The site domain has expired';
-    if (!dnsOk) return "This web address can't be found";
-    if (regions.downEverywhere || outage.downEverywhere) {
-      return 'The website is down for everyone';
-    }
-    return 'The website is not responding';
   }
 
   UrlPortResult? _portResult(List<UrlPortResult> ports, int port) {

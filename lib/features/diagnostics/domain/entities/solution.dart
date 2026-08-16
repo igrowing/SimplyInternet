@@ -25,6 +25,14 @@ enum SolutionActionType {
   /// Re-run the whole diagnosis (after the user changed something).
   retry,
 
+  /// Re-run the diagnosis over mobile data: opens the Wi-Fi panel so the user
+  /// can leave Wi-Fi, then tests again when they come back.
+  retestOverMobile,
+
+  /// Re-run the diagnosis over Wi-Fi: opens the Wi-Fi panel so the user can
+  /// join a network, then tests again when they come back.
+  retestOverWifi,
+
   /// No device action — purely informational guidance.
   advisory,
 }

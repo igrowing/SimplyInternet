@@ -7,16 +7,34 @@ enum ConnectivityKind { wifi, mobile, ethernet, vpn, other, none }
 /// Snapshot of the device's link state at the start of a diagnosis.
 @immutable
 class ConnectivityStatus extends Equatable {
-  const ConnectivityStatus({required this.kind, required this.airplaneMode});
+  const ConnectivityStatus({
+    required this.kind,
+    required this.airplaneMode,
+    this.mobileSignalLevel,
+  });
 
   final ConnectivityKind kind;
   final bool airplaneMode;
 
+  /// Cellular signal quality on Android's own 0 (none) to 4 (excellent)
+  /// scale, or null when it is not a cellular link or cannot be read. It
+  /// decides whether "move to a better spot" is worth telling the user.
+  final int? mobileSignalLevel;
+
   bool get hasLink =>
       kind != ConnectivityKind.none && kind != ConnectivityKind.other;
 
+  /// True when the cellular signal is measured and poor (0-1 of 4).
+  bool get mobileSignalWeak =>
+      mobileSignalLevel != null && mobileSignalLevel! <= 1;
+
+  /// True when the cellular signal is measured and fine (3-4 of 4), so bad
+  /// reception cannot be what is blocking the data.
+  bool get mobileSignalGood =>
+      mobileSignalLevel != null && mobileSignalLevel! >= 3;
+
   @override
-  List<Object?> get props => [kind, airplaneMode];
+  List<Object?> get props => [kind, airplaneMode, mobileSignalLevel];
 }
 
 /// Result of probing the well-known HTTP 204 captive-portal endpoints.

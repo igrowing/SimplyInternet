@@ -10,8 +10,31 @@ import 'package:simply_internet/features/urlcheck/presentation/widgets/url_check
 /// The single-screen entry point. It offers two functions — a full connection
 /// diagnosis and a single-URL check — and swaps in the relevant progress or
 /// result view while either one is running.
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  late final AppLifecycleListener _lifecycle;
+
+  @override
+  void initState() {
+    super.initState();
+    // A cross-medium retest sends the user to the Wi-Fi panel; the test runs
+    // again by itself the moment they come back.
+    _lifecycle = AppLifecycleListener(
+      onResume: () => context.read<DiagnosisController>().runPendingRetest(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _lifecycle.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {

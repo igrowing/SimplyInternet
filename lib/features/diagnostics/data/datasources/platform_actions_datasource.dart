@@ -23,6 +23,30 @@ class PlatformActionsDatasource {
     }
   }
 
+  /// Cellular signal quality on Android's 0 (none) to 4 (excellent) scale, or
+  /// null when the platform cannot report it. Needs no permission.
+  Future<int?> mobileSignalLevel() async {
+    try {
+      return await _channel.invokeMethod<int>('mobileSignalLevel');
+    } on PlatformException {
+      return null;
+    } on MissingPluginException {
+      return null;
+    }
+  }
+
+  /// Holds the display on while a check runs (and releases it afterwards).
+  Future<void> keepScreenOn({required bool on}) async {
+    try {
+      await _channel.invokeMethod<void>('keepScreenOn', on);
+    } on PlatformException catch (e) {
+      throw PlatformActionException('keepScreenOn', e.message);
+    } on MissingPluginException {
+      // Nothing to release on a platform without the channel; the screen
+      // simply follows the system timeout.
+    }
+  }
+
   Future<void> openWifiSettings() => _open('openWifiSettings');
 
   Future<void> openAirplaneSettings() => _open('openAirplaneSettings');

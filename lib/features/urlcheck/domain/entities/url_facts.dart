@@ -127,6 +127,28 @@ class UrlPortResult extends Equatable {
   List<Object?> get props => [port, service, open];
 }
 
+/// One vantage point's attempt to open the URL, so the report can show which
+/// places were actually tested instead of only a count.
+@immutable
+class RegionProbe extends Equatable {
+  const RegionProbe({
+    required this.location,
+    required this.reachable,
+    this.statusCode,
+  });
+
+  /// Country code, city or region label of the vantage point.
+  final String location;
+
+  final bool reachable;
+
+  /// HTTP status the vantage point saw, when the service reports one.
+  final int? statusCode;
+
+  @override
+  List<Object?> get props => [location, reachable, statusCode];
+}
+
 /// Multi-country reachability, used to tell "down for everyone" apart from
 /// regional/geo-blocking, without needing a VPN on the device.
 @immutable
@@ -136,13 +158,15 @@ class RegionReport extends Equatable {
     this.total = 0,
     this.reachable = 0,
     this.blockedCountries = const [],
+    this.probes = const [],
   });
 
   const RegionReport.unavailable()
     : available = false,
       total = 0,
       reachable = 0,
-      blockedCountries = const [];
+      blockedCountries = const [],
+      probes = const [];
 
   /// Whether the external multi-node check produced any usable data.
   final bool available;
@@ -156,12 +180,21 @@ class RegionReport extends Equatable {
   /// Country codes of nodes that could NOT reach the URL.
   final List<String> blockedCountries;
 
+  /// What each vantage point saw, for the technical details.
+  final List<RegionProbe> probes;
+
   bool get reachableFromSome => reachable > 0;
   bool get reachableFromAll => available && total > 0 && reachable == total;
   bool get downEverywhere => available && total > 0 && reachable == 0;
 
   @override
-  List<Object?> get props => [available, total, reachable, blockedCountries];
+  List<Object?> get props => [
+    available,
+    total,
+    reachable,
+    blockedCountries,
+    probes,
+  ];
 }
 
 /// Independent second opinion from an external outage-tracking service
@@ -180,6 +213,7 @@ class OutageReport extends Equatable {
     this.alternateHost,
     this.alternateHostUp = false,
     this.source = 'websitedown.org',
+    this.probes = const [],
   });
 
   const OutageReport.unavailable()
@@ -192,7 +226,8 @@ class OutageReport extends Equatable {
       likelyBlocked = 0,
       alternateHost = null,
       alternateHostUp = false,
-      source = 'websitedown.org';
+      source = 'websitedown.org',
+      probes = const [];
 
   /// Whether the external service returned usable data.
   final bool available;
@@ -224,6 +259,9 @@ class OutageReport extends Equatable {
   /// Human-readable name of the service, shown to the user.
   final String source;
 
+  /// What each of the service's regions saw, for the technical details.
+  final List<RegionProbe> probes;
+
   bool get downEverywhere => available && total > 0 && up == 0;
   bool get upEverywhere => available && total > 0 && up == total;
 
@@ -239,5 +277,6 @@ class OutageReport extends Equatable {
     alternateHost,
     alternateHostUp,
     source,
+    probes,
   ];
 }

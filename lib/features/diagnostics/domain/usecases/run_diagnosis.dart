@@ -44,12 +44,20 @@ class RunDiagnosis {
   Future<DiagnosisReport> call({
     void Function(DiagnosisPhase phase)? onPhase,
   }) async {
+    // The log uses a small Markdown subset (`## heading`, `- item`) that the
+    // Technical details view renders and copies verbatim.
     final log = <String>[];
-    void note(String s) => log.add(s);
+    void note(String s) => log.add('- $s');
+    void head(String s) {
+      if (log.isNotEmpty) log.add('');
+      log.add('## $s');
+    }
+
     void phase(DiagnosisPhase p) => onPhase?.call(p);
 
     // ── 1. Device link (fast, local gate) ────────────────────────────────
     phase(DiagnosisPhase.connection);
+    head('Device link');
     final conn = await _probe.connectivity();
     note(
       'Connectivity: ${conn.kind.name}, '
@@ -118,6 +126,7 @@ class RunDiagnosis {
     final linkQuality = quality.withLoadedRtt(speed.loadedRttMs);
 
     // ── 3. Evaluate the ordered decision tree over the gathered facts ─────
+    head('Router');
     note('Gateway: ${gateway ?? "unknown"}');
     if (gateway != null && gatewayMatters) {
       note('Gateway reachable: $gwReachable');
@@ -126,6 +135,7 @@ class RunDiagnosis {
       }
     }
 
+    head('Internet reachability');
     note(
       'Captive check: internetOk=${captive.internetOk}, '
       'portal=${captive.portalDetected}',
@@ -152,7 +162,13 @@ class RunDiagnosis {
       // path means the mobile data itself is not passing traffic (roaming
       // off, no allowance, carrier outage) rather than a home ISP outage.
       if (conn.kind == ConnectivityKind.mobile) {
-        return _report(VerdictCatalog.mobileDataNoInternet(), log);
+        return _report(
+          VerdictCatalog.mobileDataNoInternet(
+            signalWeak: conn.mobileSignalWeak,
+            signalGood: conn.mobileSignalGood,
+          ),
+          log,
+        );
       }
       return _report(VerdictCatalog.noInternetIsp(), log);
     }
@@ -163,6 +179,7 @@ class RunDiagnosis {
       return _report(VerdictCatalog.dnsProblem(), log);
     }
 
+    head('Ports');
     for (final p in ports) {
       note(
         'Port ${p.port}/${p.service}: '
@@ -183,6 +200,7 @@ class RunDiagnosis {
       return _report(VerdictCatalog.ispPathProblem(path), log);
     }
 
+    head('Popular sites');
     note('Country: ${siteReport.country ?? "unknown"}');
     final sites = siteReport.sites;
     final reachable = sites.where((s) => s.reachable).length;
@@ -195,8 +213,8 @@ class RunDiagnosis {
 
     // ── 4. Nothing is broken: judge what the connection can actually do ───
     final capability = _assess(speed: speed, quality: linkQuality);
-    _noteQuality(note, conn, speed, linkQuality, capability);
-    _noteTests(note, _probe.dataUsage());
+    _noteQuality(note, head, conn, speed, linkQuality, capability);
+    _noteTests(note, head, _probe.dataUsage());
 
     final outcome = VerdictCatalog.capability(
       assessment: capability,
@@ -218,17 +236,24 @@ class RunDiagnosis {
   /// they came from and which activities they do or do not support.
   void _noteQuality(
     void Function(String) note,
+    void Function(String) head,
     ConnectivityStatus conn,
     SpeedResult speed,
     LinkQuality quality,
     CapabilityAssessment capability,
   ) {
     final medium = VerdictCatalog.mediumLabel(conn.kind);
+    head('Measurements');
     note('Tested over: $medium');
     if (conn.kind == ConnectivityKind.mobile) {
       note(
         'Mobile data was measured because it is the link in use '
         '(Wi-Fi not connected, or you chose to retest over mobile)',
+      );
+      final level = conn.mobileSignalLevel;
+      note(
+        'Cellular signal: '
+        '${level == null ? "not reported" : "$level of 4"}',
       );
     }
     final down = speed.ok
@@ -249,10 +274,11 @@ class RunDiagnosis {
         '${ratio == null ? "" : " (${ratio.toStringAsFixed(1)}x idle)"}',
       );
     }
+    head('Good for');
     for (final outcome in capability.outcomes) {
       final short = outcome.shortfalls.map((s) => s.text).join(', ');
       final state = outcome.supported ? 'yes' : 'no — $short';
-      note('Good for ${outcome.name}: $state');
+      note('${outcome.name}: $state');
     }
   }
 
@@ -275,13 +301,17 @@ class RunDiagnosis {
   }
 
   /// Lists exactly which tests ran and what they cost in data.
-  void _noteTests(void Function(String) note, DataUsage usage) {
+  void _noteTests(
+    void Function(String) note,
+    void Function(String) head,
+    DataUsage usage,
+  ) {
     if (usage.records.isEmpty) return;
-    note('Tests performed (${usage.records.length}):');
+    head('Tests performed (${usage.records.length})');
     for (final r in usage.records) {
       final sent = DataUsage.formatBytes(r.bytesSent);
       final received = DataUsage.formatBytes(r.bytesReceived);
-      note('  • ${r.test} → ${r.target} (sent $sent, received $received)');
+      note('${r.test} → ${r.target} (sent $sent, received $received)');
     }
     note(
       'Data used by this diagnosis: '

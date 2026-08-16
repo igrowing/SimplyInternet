@@ -89,7 +89,10 @@ void main() {
           internetRtts: const [40, 42, 41, 43, 40, 41, 42, 40, 41, 42],
         ),
       );
-      expect(verdict.verdict.detail, contains('Turn your camera off'));
+      // The rescue tip is an action, so it belongs in the advice, not in
+      // the explanation of what was measured.
+      expect(verdict.solution!.message, contains('Turn your camera off'));
+      expect(verdict.verdict.detail, isNot(contains('Turn your camera off')));
     });
 
     test('does not judge upload limits when upload was not measured', () {
@@ -173,8 +176,10 @@ void main() {
         speed: speed,
         quality: quality,
       );
-      expect(out.verdict.detail, contains('upload not measured'));
       expect(out.verdict.detail, contains('upload was not judged'));
+      // Only the metrics that failed the criteria are spelled out.
+      expect(out.verdict.detail, contains('packet loss'));
+      expect(out.verdict.detail, isNot(contains('download 1.0 Mbps')));
       expect(out.verdict.title, contains('mobile data'));
     });
   });

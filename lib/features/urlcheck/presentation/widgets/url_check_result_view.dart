@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:simply_internet/features/diagnostics/presentation/widgets/technical_details.dart';
 import 'package:simply_internet/features/urlcheck/domain/entities/url_check_report.dart';
 import 'package:simply_internet/features/urlcheck/presentation/controllers/url_check_controller.dart';
 
@@ -42,7 +43,13 @@ class UrlCheckResultView extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 20),
-        for (final finding in report.findings) _FindingCard(finding: finding),
+        for (final finding in report.findings)
+          // The headline is drawn from the reason above, so a card would
+          // print the same sentence twice.
+          _FindingCard(
+            finding: finding,
+            showTitle: finding.title != report.headline,
+          ),
         const SizedBox(height: 8),
         FilledButton.tonalIcon(
           onPressed: () => _open(context),
@@ -56,7 +63,7 @@ class UrlCheckResultView extends StatelessWidget {
           label: const Text('Check another'),
         ),
         const SizedBox(height: 8),
-        _DetailsLog(log: report.log),
+        TechnicalDetails(log: report.log),
       ],
     );
   }
@@ -104,9 +111,10 @@ class UrlCheckResultView extends StatelessWidget {
 }
 
 class _FindingCard extends StatelessWidget {
-  const _FindingCard({required this.finding});
+  const _FindingCard({required this.finding, this.showTitle = true});
 
   final UrlFinding finding;
+  final bool showTitle;
 
   @override
   Widget build(BuildContext context) {
@@ -124,13 +132,15 @@ class _FindingCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    finding.title,
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
+                  if (showTitle) ...[
+                    Text(
+                      finding.title,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
+                    const SizedBox(height: 4),
+                  ],
                   Text(finding.detail, style: theme.textTheme.bodyMedium),
                 ],
               ),
@@ -166,30 +176,5 @@ class _FindingCard extends StatelessWidget {
       case UrlSeverity.problem:
         return Icons.error_outline;
     }
-  }
-}
-
-class _DetailsLog extends StatelessWidget {
-  const _DetailsLog({required this.log});
-
-  final List<String> log;
-
-  @override
-  Widget build(BuildContext context) {
-    if (log.isEmpty) return const SizedBox.shrink();
-    return ExpansionTile(
-      title: const Text('Technical details'),
-      childrenPadding: const EdgeInsets.symmetric(horizontal: 16),
-      children: [
-        for (final line in log)
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              line,
-              style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-            ),
-          ),
-      ],
-    );
   }
 }

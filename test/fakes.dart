@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:simply_internet/features/diagnostics/domain/entities/data_usage.dart';
 import 'package:simply_internet/features/diagnostics/domain/entities/link_quality.dart';
 import 'package:simply_internet/features/diagnostics/domain/entities/network_facts.dart';
@@ -48,6 +49,7 @@ class FakeNetworkProbe implements NetworkProbe {
     this.sites = const [
       SiteReachability(host: 'google.com', label: 'Google', reachable: true),
     ],
+    this.throwOnConnectivity = false,
   });
 
   ConnectivityStatus connectivityResult;
@@ -64,12 +66,20 @@ class FakeNetworkProbe implements NetworkProbe {
   String? country;
   List<SiteReachability> sites;
 
+  /// Makes the first probe fail, so tests can exercise the error path.
+  bool throwOnConnectivity;
+
   /// Probe names in the order they were invoked, so tests can assert that the
   /// idle latency samples are taken before the link is saturated.
   final List<String> calls = [];
 
   @override
-  Future<ConnectivityStatus> connectivity() async => connectivityResult;
+  Future<ConnectivityStatus> connectivity() async {
+    if (throwOnConnectivity) {
+      throw const SocketException('no interface');
+    }
+    return connectivityResult;
+  }
 
   @override
   Future<String?> gatewayIp() async => gateway;
@@ -131,6 +141,10 @@ class FakeDeviceActions implements DeviceActions {
 
   @override
   Future<void> openPrivateDnsSettings() async => calls.add('dns');
+
+  @override
+  Future<void> keepScreenOn({required bool on}) async =>
+      calls.add(on ? 'screenOn' : 'screenOff');
 
   @override
   Future<bool> openUrl(String url) async {

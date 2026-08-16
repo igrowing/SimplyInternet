@@ -64,9 +64,13 @@ class NetworkProbeImpl implements NetworkProbe {
   Future<ConnectivityStatus> connectivity() async {
     final results = await _connectivity.checkConnectivity();
     final airplane = await _platform.isAirplaneModeOn();
+    final kind = _mapConnectivity(results);
     return ConnectivityStatus(
-      kind: _mapConnectivity(results),
+      kind: kind,
       airplaneMode: airplane,
+      mobileSignalLevel: kind == ConnectivityKind.mobile
+          ? await _platform.mobileSignalLevel()
+          : null,
     );
   }
 
@@ -280,10 +284,7 @@ class NetworkProbeImpl implements NetworkProbe {
   /// arrived, so a slow link reports a low speed instead of timing out. The
   /// round-trip time is sampled at the same time to expose saturation.
   Future<SpeedResult> _measureDownload() async {
-    // Ask for more than any consumer link can deliver inside the window; the
-    // request is cut short as soon as the window closes.
-    const bytes = 200 * 1000 * 1000;
-    final uri = Uri.parse('$kDownloadUrl$bytes');
+    final uri = Uri.parse('$kDownloadUrl$kDownloadChunkBytes');
     final client = _clientFactory();
     final loadedRtts = NetworkTools.pingRtts(
       kLatencyProbeHost,
@@ -291,18 +292,29 @@ class NetworkProbeImpl implements NetworkProbe {
       interval: kLatencyInterval,
     );
     try {
-      final request = http.Request('GET', uri)
-        ..headers['User-Agent'] = 'SimplyInternet/1.0';
-      final sw = Stopwatch()..start();
-      final streamed = await client
-          .send(request)
-          .timeout(const Duration(seconds: 8));
       var received = 0;
-      await for (final chunk in streamed.stream.timeout(
-        const Duration(seconds: 8),
-      )) {
-        received += chunk.length;
-        if (sw.elapsed >= kDownloadWindow) break;
+      final sw = Stopwatch()..start();
+      // Requests of a size the service actually serves, repeated until the
+      // window closes: a fast link needs several, a slow one is cut off part
+      // way through the first and still reports its real rate.
+      while (sw.elapsed < kDownloadWindow) {
+        final request = http.Request('GET', uri)
+          ..headers['User-Agent'] = 'SimplyInternet/1.0';
+        final streamed = await client
+            .send(request)
+            .timeout(const Duration(seconds: 8));
+        // A refusal must not be mistaken for a very slow link: its short error
+        // body would otherwise be reported as a fraction of a Mbps.
+        if (streamed.statusCode != 200) {
+          _record('Download speed', uri.host);
+          return const SpeedResult.unavailable();
+        }
+        await for (final chunk in streamed.stream.timeout(
+          const Duration(seconds: 8),
+        )) {
+          received += chunk.length;
+          if (sw.elapsed >= kDownloadWindow) break;
+        }
       }
       sw.stop();
       final seconds = sw.elapsedMilliseconds / 1000.0;

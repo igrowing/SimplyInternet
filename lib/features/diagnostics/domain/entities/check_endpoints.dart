@@ -75,6 +75,13 @@ const String kUploadUrl = 'https://speed.cloudflare.com/__up';
 /// Chunk posted repeatedly by the upload probe (256 kB).
 const int kUploadChunkBytes = 256 * 1024;
 
+/// Bytes requested per download request, repeated until the window closes.
+///
+/// The service refuses oversized requests with a 403 and a one-byte body, so
+/// the size must stay inside what it serves (25 MB is accepted, 100 MB is not)
+/// instead of asking for one huge object and cutting it short.
+const int kDownloadChunkBytes = 25 * 1000 * 1000;
+
 /// At most this many activities may fail before the connection is described as
 /// degraded rather than "good for everything except …".
 const int kMostlyGoodFailureLimit = 3;

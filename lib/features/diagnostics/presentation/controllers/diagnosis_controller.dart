@@ -34,6 +34,12 @@ class DiagnosisController extends ChangeNotifier {
 
   bool get isRunning => _status == DiagnosisStatus.running;
 
+  /// Set when the user chose to test over the other medium: the diagnosis is
+  /// re-run once they come back from the settings panel they were sent to.
+  bool _rerunOnResume = false;
+
+  bool get retestPending => _rerunOnResume;
+
   /// Run the full diagnosis. Safe to call repeatedly (ignored while running).
   Future<void> run() async {
     if (_status == DiagnosisStatus.running) return;
@@ -43,6 +49,9 @@ class DiagnosisController extends ChangeNotifier {
     _phase = DiagnosisPhase.connection;
     notifyListeners();
 
+    // The run takes seconds and the user is only watching; a dark screen mid
+    // check looks like a hang.
+    await _deviceActions.keepScreenOn(on: true);
     try {
       final report = await _runDiagnosis.call(
         onPhase: (p) {
@@ -55,8 +64,18 @@ class DiagnosisController extends ChangeNotifier {
     } on Exception catch (e) {
       _error = e.toString();
       _status = DiagnosisStatus.error;
+    } finally {
+      await _deviceActions.keepScreenOn(on: false);
     }
     notifyListeners();
+  }
+
+  /// Runs the pending cross-medium retest, if the user asked for one before
+  /// leaving for the settings panel. Called when the app is resumed.
+  Future<void> runPendingRetest() async {
+    if (!_rerunOnResume) return;
+    _rerunOnResume = false;
+    await run();
   }
 
   /// Return to the initial screen.
@@ -90,6 +109,13 @@ class DiagnosisController extends ChangeNotifier {
         return _deviceActions.openUrl(url);
       case SolutionActionType.retry:
         await run();
+        return true;
+      case SolutionActionType.retestOverMobile:
+      case SolutionActionType.retestOverWifi:
+        // Android does not let an app switch medium, so the user does it in
+        // the Wi-Fi panel; the test re-runs by itself once they return.
+        _rerunOnResume = true;
+        await _deviceActions.openWifiSettings();
         return true;
       case SolutionActionType.advisory:
         return false;

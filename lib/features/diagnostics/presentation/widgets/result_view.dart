@@ -3,6 +3,7 @@ import 'package:simply_internet/features/diagnostics/domain/entities/capability.
 import 'package:simply_internet/features/diagnostics/domain/entities/diagnosis_report.dart';
 import 'package:simply_internet/features/diagnostics/domain/entities/solution.dart';
 import 'package:simply_internet/features/diagnostics/presentation/controllers/diagnosis_controller.dart';
+import 'package:simply_internet/features/diagnostics/presentation/widgets/technical_details.dart';
 import 'package:simply_internet/features/diagnostics/presentation/widgets/verdict_visuals.dart';
 
 /// Renders a finished [DiagnosisReport]: the verdict headline, the plain
@@ -59,11 +60,13 @@ class ResultView extends StatelessWidget {
                       Text('What to do', style: theme.textTheme.titleMedium),
                     ],
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    report.solution!.message,
-                    style: theme.textTheme.bodyMedium,
-                  ),
+                  if (report.solution!.message.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      report.solution!.message,
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                  ],
                   const SizedBox(height: 12),
                   ...report.solution!.actions.map(
                     (a) => Padding(
@@ -90,7 +93,7 @@ class ResultView extends StatelessWidget {
           label: const Text('Back'),
         ),
         const SizedBox(height: 8),
-        _DiagnosticLog(log: report.log),
+        TechnicalDetails(log: report.log),
       ],
     );
   }
@@ -144,6 +147,10 @@ class ResultView extends StatelessWidget {
         return Icons.dns;
       case SolutionActionType.retry:
         return Icons.refresh;
+      case SolutionActionType.retestOverMobile:
+        return Icons.signal_cellular_alt;
+      case SolutionActionType.retestOverWifi:
+        return Icons.wifi;
       case SolutionActionType.advisory:
         return Icons.info_outline;
     }
@@ -191,31 +198,6 @@ class _CapabilityList extends StatelessWidget {
             child: Text(
               'Upload could not be measured, so upload needs were not judged.',
               style: theme.textTheme.bodySmall,
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-class _DiagnosticLog extends StatelessWidget {
-  const _DiagnosticLog({required this.log});
-
-  final List<String> log;
-
-  @override
-  Widget build(BuildContext context) {
-    if (log.isEmpty) return const SizedBox.shrink();
-    return ExpansionTile(
-      title: const Text('Technical details'),
-      childrenPadding: const EdgeInsets.symmetric(horizontal: 16),
-      children: [
-        for (final line in log)
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              line,
-              style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
             ),
           ),
       ],

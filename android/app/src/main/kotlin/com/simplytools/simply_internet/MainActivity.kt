@@ -3,6 +3,8 @@ package com.simplytools.simply_internet
 import android.content.Intent
 import android.os.Build
 import android.provider.Settings
+import android.telephony.TelephonyManager
+import android.view.WindowManager
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -29,7 +31,41 @@ class MainActivity : FlutterActivity() {
                 "openMobileDataSettings" -> openMobileDataSettings(result)
                 "openPrivateDnsSettings" ->
                     openSettings(Settings.ACTION_WIRELESS_SETTINGS, result)
+                "mobileSignalLevel" -> result.success(mobileSignalLevel())
+                "keepScreenOn" -> {
+                    keepScreenOn(call.arguments as? Boolean ?: false)
+                    result.success(true)
+                }
                 else -> result.notImplemented()
+            }
+        }
+    }
+
+    /**
+     * Cellular signal quality as Android's own 0 (none) to 4 (excellent)
+     * level, or null when the platform cannot report it. Uses
+     * TelephonyManager.getSignalStrength(), which needs no permission —
+     * unlike getAllCellInfo(), so the app asks for nothing.
+     */
+    private fun mobileSignalLevel(): Int? {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) return null
+        return try {
+            val tm = getSystemService(TELEPHONY_SERVICE) as TelephonyManager
+            tm.signalStrength?.level
+        } catch (e: SecurityException) {
+            null
+        }
+    }
+
+    /** Holds the display on while a check runs, and releases it after. */
+    private fun keepScreenOn(on: Boolean) {
+        runOnUiThread {
+            if (on) {
+                window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            } else {
+                window.clearFlags(
+                    WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON,
+                )
             }
         }
     }
