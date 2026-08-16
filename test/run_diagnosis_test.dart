@@ -206,9 +206,19 @@ void main() {
       final log = report.log.join('\n');
       expect(log, contains('Tested over: Wi-Fi'));
       expect(log, contains('Tests performed (2)'));
-      expect(log, contains('Download speed → speed.cloudflare.com'));
-      expect(log, contains('3.0 MB sent'));
-      expect(log, contains('6.0 MB received'));
+      // Each test names only the direction it moved data in, never "sent 0 B".
+      expect(
+        log,
+        contains('Download speed → speed.cloudflare.com (received 6.0 MB)'),
+      );
+      expect(
+        log,
+        contains('Upload speed → speed.cloudflare.com (sent 3.0 MB)'),
+      );
+      expect(
+        log,
+        contains('Data used by this diagnosis: sent 3.0 MB, received 6.0 MB'),
+      );
       expect(log, contains('Upload: 20.0 Mbps'));
       expect(log, contains('Internet response time: 16 ms avg'));
     });
