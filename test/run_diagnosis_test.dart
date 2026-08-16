@@ -217,7 +217,7 @@ void main() {
       );
       expect(
         log,
-        contains('Data used by this diagnosis: sent 3.0 MB, received 6.0 MB'),
+        contains('Total data used by this diagnosis: sent 3.0 MB, received 6.0 MB'),
       );
       expect(log, contains('Upload: 20.0 Mbps'));
       expect(log, contains('Internet response time: 16 ms avg'));

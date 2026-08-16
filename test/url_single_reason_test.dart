@@ -35,7 +35,7 @@ void main() {
         ),
       ).call('kirgudubutbiya.net');
       expect(report.findings.single.title, "The address doesn't exist");
-      expect(report.headline, "This web address can't be found");
+      expect(report.headline, "This web address can't be found.");
       expect(report.findings.single.detail, contains('registry'));
     });
 
@@ -63,7 +63,7 @@ void main() {
       expect(badFindings(report), 1);
       expect(
         report.findings.single.title,
-        'Blocked on your connection or in your country',
+        'Blocked on your connection or in your country.',
       );
       expect(report.findings.single.detail, contains('IT, DE'));
     });

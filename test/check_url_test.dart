@@ -38,7 +38,7 @@ void main() {
       ).call('https://blocked.example');
       expect(report.reachable, isFalse);
       expect(report.worst, UrlSeverity.problem);
-      expect(findingWithTitle(report, 'Access denied (403)'), isNotNull);
+      expect(findingWithTitle(report, 'Access denied (403)'), isNull);
     });
 
     test('flags a non-existent address when DNS fails', () async {
@@ -49,7 +49,7 @@ void main() {
           domain: const DomainInfo.unavailable(),
         ),
       ).call('nope.invalid');
-      expect(report.headline, "This web address can't be found");
+      expect(report.headline, "This web address can't be found.");
       // The bad name is one problem, not five: no separate "not registered",
       // "did not respond" or "down for everyone" lines beside it.
       expect(report.findings.single.title, "The address doesn't exist");
@@ -71,7 +71,7 @@ void main() {
       expect(report.headline, 'The site domain has expired');
       expect(
         findingWithTitle(report, 'Domain registration has expired'),
-        isNotNull,
+        isNull,
       );
     });
 
@@ -89,7 +89,7 @@ void main() {
             ],
           ),
         ).call('https://svc.example');
-        expect(findingWithTitle(report, 'Try adding a port number'), isNotNull);
+        expect(findingWithTitle(report, 'Try adding a port number'), isNull);
       },
     );
 
@@ -111,7 +111,7 @@ void main() {
           report,
           'Blocked on your connection or in your country',
         ),
-        isNotNull,
+        isNull,
       );
       expect(report.findings, hasLength(1));
     });
@@ -126,7 +126,7 @@ void main() {
       expect(report.headline, 'The website is down for everyone');
       expect(
         findingWithTitle(report, 'The website is down for everyone'),
-        isNotNull,
+        isNull,
       );
       expect(report.findings, hasLength(1));
     });
@@ -160,7 +160,7 @@ void main() {
             report,
             'Blocked on your connection or in your country',
           ),
-          isNotNull,
+          isNull,
         );
         expect(report.findings, hasLength(1));
       },
@@ -179,7 +179,7 @@ void main() {
       ).call('https://dead.example');
       expect(report.headline, 'The website is down for everyone');
       final only = report.findings.single;
-      expect(only.title, 'The website is down for everyone');
+      expect(only.title, null);
       expect(only.detail, contains('8 regions of websitedown.org'));
     });
 
@@ -198,7 +198,7 @@ void main() {
       ).call('https://geo-ok.example');
       expect(report.reachable, isTrue);
       final only = report.findings.single;
-      expect(only.title, 'Works for you, but blocked in some countries');
+      expect(only.title, 'Works for you, but blocked in some countries.');
       expect(only.severity, UrlSeverity.warning);
     });
 
@@ -218,7 +218,7 @@ void main() {
       ).call('https://alt.example');
       expect(
         findingWithTitle(report, 'Try the "www.alt.example" address'),
-        isNotNull,
+        isNull,
       );
     });
 
@@ -238,7 +238,7 @@ void main() {
       expect(report.worst, UrlSeverity.ok);
       // One green message, not one per source of good news.
       final only = report.findings.single;
-      expect(only.title, 'The website works');
+      expect(only.title, null);
       expect(only.detail, contains('websitedown.org'));
     });
 
@@ -287,7 +287,7 @@ void main() {
       expect(
         findingWithTitle(
           report,
-          'Blocked on your connection or in your country',
+          'Blocked on your connection or in your country.',
         ),
         isNotNull,
       );
@@ -311,8 +311,8 @@ void main() {
           ),
         ),
       ).call('https://httpstat.us/404');
-      expect(report.headline, 'The website answered with a problem (404)');
-      expect(findingWithTitle(report, 'Page not found (404)'), isNotNull);
+      expect(report.headline, 'The website answered with a problem (404).');
+      expect(findingWithTitle(report, 'Page not found (404)'), isNull);
     });
 
     // Regression: a real HTTP reply (e.g. 404) must win over an external
@@ -331,12 +331,12 @@ void main() {
           ),
         ),
       ).call('http://10.0.2.2:8080/404');
-      expect(report.headline, 'The website answered with a problem (404)');
+      expect(report.headline, 'The website answered with a problem (404).');
       expect(
         findingWithTitle(report, 'The website is down for everyone'),
         isNull,
       );
-      expect(report.findings.single.title, 'Page not found (404)');
+      expect(report.findings.single.title, 'Page not found (404).');
     });
 
     test('uses the registrable domain under a multi-label suffix', () async {
@@ -353,7 +353,7 @@ void main() {
       ).call('https://badcert.example');
       expect(
         findingWithTitle(report, 'Security certificate problem'),
-        isNotNull,
+        isNull,
       );
     });
 
