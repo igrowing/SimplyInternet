@@ -57,6 +57,12 @@ class UrlCheckResultView extends StatelessWidget {
           label: const Text('Open in browser'),
         ),
         const SizedBox(height: 8),
+        FilledButton.tonalIcon(
+          onPressed: () => _retestOverMobile(context),
+          icon: const Icon(Icons.signal_cellular_alt),
+          label: const Text('Test over mobile data'),
+        ),
+        const SizedBox(height: 8),
         OutlinedButton.icon(
           onPressed: controller.reset,
           icon: const Icon(Icons.arrow_back),
@@ -79,6 +85,32 @@ class UrlCheckResultView extends StatelessWidget {
       }
     } on Exception catch (e) {
       messenger.showSnackBar(SnackBar(content: Text('Could not open: $e')));
+    }
+  }
+
+  /// Hands the user to the Wi-Fi panel; the same address is checked again by
+  /// itself once they return, so the two mediums can be compared.
+  Future<void> _retestOverMobile(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final ok = await controller.retestOverMobile();
+      if (!ok) {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Nothing to test again.')),
+        );
+        return;
+      }
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Turn Wi-Fi off, then come back — the check runs again by itself.',
+          ),
+        ),
+      );
+    } on Exception catch (e) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('Could not open the settings: $e')),
+      );
     }
   }
 

@@ -309,15 +309,21 @@ class RunDiagnosis {
     if (usage.records.isEmpty) return;
     head('Tests performed (${usage.records.length})');
     for (final r in usage.records) {
-      final sent = DataUsage.formatBytes(r.bytesSent);
-      final received = DataUsage.formatBytes(r.bytesReceived);
-      note('${r.test} → ${r.target} (sent $sent, received $received)');
+      final traffic = _formatTraffic(r.bytesSent, r.bytesReceived);
+      note('${r.test} → ${r.target}${traffic.isEmpty ? "" : " ($traffic)"}');
     }
-    note(
-      'Data used by this diagnosis: '
-      '${DataUsage.formatBytes(usage.bytesSent)} sent, '
-      '${DataUsage.formatBytes(usage.bytesReceived)} received',
-    );
+    final total = _formatTraffic(usage.bytesSent, usage.bytesReceived);
+    if (total.isNotEmpty) note('Total data used by this diagnosis: $total');
+  }
+
+  /// "sent 1.2 kB, received 3 kB", dropping either half when it is zero so
+  /// tests that only send or only receive don't read as "received 0 B".
+  String _formatTraffic(int bytesSent, int bytesReceived) {
+    final parts = [
+      if (bytesSent > 0) 'sent ${DataUsage.formatBytes(bytesSent)}',
+      if (bytesReceived > 0) 'received ${DataUsage.formatBytes(bytesReceived)}',
+    ];
+    return parts.join(', ');
   }
 
   Future<bool> _anyRawReachable() async {

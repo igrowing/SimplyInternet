@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:simply_internet/core/retest/cross_medium_retest.dart';
 import 'package:simply_internet/features/diagnostics/domain/entities/diagnosis_report.dart';
 import 'package:simply_internet/features/diagnostics/domain/entities/solution.dart';
 import 'package:simply_internet/features/diagnostics/domain/repositories/device_actions.dart';
@@ -15,10 +16,12 @@ class DiagnosisController extends ChangeNotifier {
     required RunDiagnosis runDiagnosis,
     required DeviceActions deviceActions,
   }) : _runDiagnosis = runDiagnosis,
-       _deviceActions = deviceActions;
+       _deviceActions = deviceActions,
+       _retest = CrossMediumRetest(deviceActions);
 
   final RunDiagnosis _runDiagnosis;
   final DeviceActions _deviceActions;
+  final CrossMediumRetest _retest;
 
   DiagnosisStatus _status = DiagnosisStatus.idle;
   DiagnosisStatus get status => _status;
@@ -34,11 +37,7 @@ class DiagnosisController extends ChangeNotifier {
 
   bool get isRunning => _status == DiagnosisStatus.running;
 
-  /// Set when the user chose to test over the other medium: the diagnosis is
-  /// re-run once they come back from the settings panel they were sent to.
-  bool _rerunOnResume = false;
-
-  bool get retestPending => _rerunOnResume;
+  bool get retestPending => _retest.pending;
 
   /// Run the full diagnosis. Safe to call repeatedly (ignored while running).
   Future<void> run() async {
@@ -72,17 +71,14 @@ class DiagnosisController extends ChangeNotifier {
 
   /// Runs the pending cross-medium retest, if the user asked for one before
   /// leaving for the settings panel. Called when the app is resumed.
-  Future<void> runPendingRetest() async {
-    if (!_rerunOnResume) return;
-    _rerunOnResume = false;
-    await run();
-  }
+  Future<void> runPendingRetest() => _retest.runIfPending(run);
 
   /// Return to the initial screen.
   void reset() {
     _status = DiagnosisStatus.idle;
     _report = null;
     _error = null;
+    _retest.cancel();
     notifyListeners();
   }
 
@@ -112,10 +108,7 @@ class DiagnosisController extends ChangeNotifier {
         return true;
       case SolutionActionType.retestOverMobile:
       case SolutionActionType.retestOverWifi:
-        // Android does not let an app switch medium, so the user does it in
-        // the Wi-Fi panel; the test re-runs by itself once they return.
-        _rerunOnResume = true;
-        await _deviceActions.openWifiSettings();
+        await _retest.arm();
         return true;
       case SolutionActionType.advisory:
         return false;

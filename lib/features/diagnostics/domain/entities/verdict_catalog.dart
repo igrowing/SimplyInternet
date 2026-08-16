@@ -362,7 +362,7 @@ class VerdictCatalog {
       if (speed.uploadMbps != null) 'upload ${_rate(speed.uploadMbps!)} Mbps',
     ];
     if (parts.isEmpty) return 'Measured over ${mediumLabel(medium)}.';
-    return 'Measured over ${mediumLabel(medium)}: ${parts.join(', ')}.';
+    return 'Measured over ${mediumLabel(medium)}:\n${parts.join(', ')}.';
   }
 
   /// Why the connection falls short: only the measurements that actually miss
@@ -379,7 +379,7 @@ class VerdictCatalog {
         .join(', ');
     final figures = blame.isEmpty
         ? ''
-        : 'Measured over ${mediumLabel(medium)}: $blame. ';
+        : 'Measured over ${mediumLabel(medium)}:\n$blame. ';
     final missing = assessment.uploadMeasured
         ? ''
         : 'The upload test could not run, so upload was not judged. ';
