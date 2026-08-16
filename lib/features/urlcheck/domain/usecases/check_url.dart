@@ -345,7 +345,7 @@ class CheckUrl {
       return (
         finding: UrlFinding(
           severity: fetch.isSuccess ? UrlSeverity.warning : UrlSeverity.problem,
-          title: 'Security certificate problem',
+          title: 'Security certificate problem.',
           detail:
               'The site HTTPS certificate could not be trusted'
               '${tls.issue != null ? " (${tls.issue})" : ""}. $consequence Do '
@@ -353,7 +353,7 @@ class CheckUrl {
               'correct; if they are, the site is misconfigured and only its '
               'owner can fix it.',
         ),
-        headline: 'The site security certificate is not trusted.',
+        headline: 'The site security certificate is not trusted',
       );
     }
     if (fetch.isSuccess) return _workingConclusion(fetch, regions, outage);
@@ -388,13 +388,13 @@ class CheckUrl {
       return (
         finding: UrlFinding(
           severity: UrlSeverity.problem,
-          title: 'Domain registration has expired',
+          title: 'Domain registration has expired.',
           detail:
               'The owner let the domain lapse'
               '${_expirySuffix(domain.expiry)}. Until they renew it, the '
               'site will not work for anyone. There is nothing you can fix.',
         ),
-        headline: 'The site domain has expired.',
+        headline: 'The site domain has expired',
       );
     }
     if (regions.downEverywhere || outage.downEverywhere) {
@@ -407,26 +407,24 @@ class CheckUrl {
       return (
         finding: UrlFinding(
           severity: UrlSeverity.problem,
-          title: 'The website is down for everyone',
           detail:
               'It could not be opened from $sources either, so the site is '
               'down for everyone — not just you. There is nothing to fix on '
               'your side.',
         ),
-        headline: 'The website is down for everyone.',
+        headline: 'The website is down for everyone',
       );
     }
     return (
       finding: UrlFinding(
         severity: UrlSeverity.problem,
-        title: 'The website did not respond',
         detail:
             'The address exists, but no reply came back from the server'
             '${fetch.error != null ? " (${fetch.error})" : ""}. It is either '
             'switched off or unreachable right now. Try again in a few '
             'minutes, or on another network.',
       ),
-      headline: 'The website is not responding.',
+      headline: 'The website is not responding',
     );
   }
 
@@ -448,7 +446,7 @@ class CheckUrl {
       return (
         finding: UrlFinding(
           severity: UrlSeverity.warning,
-          title: 'Works for you, but blocked in some countries',
+          title: 'Works for you, but blocked in some countries.',
           detail:
               'The page opened normally on your device (code '
               '${fetch.statusCode}), so nothing is wrong with your '
@@ -456,7 +454,7 @@ class CheckUrl {
               'the site geo-fencing them, not a fault either of you can '
               'fix.',
         ),
-        headline: 'The website works for you.',
+        headline: 'The website works for you',
       );
     }
     final elsewhere = outage.available && outage.up > 0
@@ -469,12 +467,11 @@ class CheckUrl {
     return (
       finding: UrlFinding(
         severity: UrlSeverity.ok,
-        title: 'The website works',
         detail:
             'The page answered normally (code ${fetch.statusCode}) from your '
             'device.$elsewhere',
       ),
-      headline: 'The website works.',
+      headline: 'The website works',
     );
   }
 
@@ -501,14 +498,14 @@ class CheckUrl {
     return (
       finding: UrlFinding(
         severity: UrlSeverity.warning,
-        title: 'Blocked on your connection or in your country',
+        title: 'Blocked on your connection or in your country.',
         detail:
             'The site is up — $evidence — but nothing came back on your '
             'connection.$blocked Either the site refuses visitors from your '
             'country, or your network. A VPN set '
             'to another country gets around it. Sometimes using mobile data instead of Wi-Fi helps.',
       ),
-      headline: 'The website seems blocked for you.',
+      headline: 'The website seems blocked for you',
     );
   }
 
@@ -529,7 +526,7 @@ class CheckUrl {
       out.add(
         UrlFinding(
           severity: UrlSeverity.warning,
-          title: 'The website is very slow',
+          title: 'The website is very slow.',
           detail:
               'It took ${(ms / 1000).toStringAsFixed(1)} seconds to respond. '
               'The site or your connection may be congested; try again later '
@@ -543,7 +540,7 @@ class CheckUrl {
         out.add(
           UrlFinding(
             severity: UrlSeverity.info,
-            title: 'Try the "$alt" address',
+            title: 'Try the "$alt" address.',
             detail:
                 'The exact address did not work, but "$alt" did. You may '
                 'have left off (or added) a "www." — open $alt instead.',  // Action
@@ -571,7 +568,7 @@ class CheckUrl {
     return [
       UrlFinding(
         severity: UrlSeverity.info,
-        title: 'Try adding a port number',
+        title: 'Try adding a port number.',
         detail:
             'The usual port $mainPort is closed, but port $altPort is open. '
             'The service may live at '
@@ -590,7 +587,7 @@ class CheckUrl {
     return [
       UrlFinding(
         severity: UrlSeverity.info,
-        title: 'Domain expires soon',
+        title: 'Domain expires soon.',
         detail:
             'The domain registration expires in $days day(s). That is the '
             'site owner concern, not a fault on your side.',
@@ -603,7 +600,7 @@ class CheckUrl {
       case 401:
         return const UrlFinding(
           severity: UrlSeverity.warning,
-          title: 'The site works but needs you to log in first',
+          title: 'The site works but needs you to log in first.',
           detail: 'Sign-in required (401). Open it in a browser and sign in with your account.'  // Action
         );
       case 403:
@@ -618,7 +615,7 @@ class CheckUrl {
       case 404:
         return const UrlFinding(
           severity: UrlSeverity.warning,
-          title: 'Page not found (404)',
+          title: 'Page not found (404).',
           detail:
               'The server is up but this exact page does not exist. Check '
               'the address, or open the site home page and navigate from '   // Action
@@ -627,7 +624,7 @@ class CheckUrl {
       case 408:
         return const UrlFinding(
           severity: UrlSeverity.warning,
-          title: 'Request timed out (408)',
+          title: 'Request timed out (408).',
           detail:
               'The server was too slow to accept the request.'
               ' Try again; if it persists the site is overloaded.',   // Action
@@ -635,7 +632,7 @@ class CheckUrl {
       case 429:
         return const UrlFinding(
           severity: UrlSeverity.warning,
-          title: 'This site cannot process too fast queries from you',
+          title: 'This site cannot process too fast queries from you.',
           detail:
               'Too many requests (429). Wait a minute and try again, '  // Action, read from Retry-After (seconds, or an HTTP date) how long to wait and use that prcise number, not a minute.
               'and avoid refreshing repeatedly.',   // Action
@@ -643,7 +640,7 @@ class CheckUrl {
       case 451:
         return const UrlFinding(
           severity: UrlSeverity.warning,
-          title: 'The site is legally barred from serving your country or region',
+          title: 'The site is legally barred from serving your country or region.',
           detail:
               'Blocked for legal reasons (451). It is not broken and nothing on your side is wrong. A '
               'VPN set to another country is the only way around it.',   // Action
@@ -654,7 +651,7 @@ class CheckUrl {
       case 504:
         return UrlFinding(
           severity: UrlSeverity.problem,
-          title: 'The problem is on the website end, not yours',
+          title: 'The problem is on the website end, not yours.',
           detail:
               'The website has a server error ($code). It may be '
               'down or under maintenance. Wait and try again later.',   // Action
@@ -662,7 +659,7 @@ class CheckUrl {
       default:
         return UrlFinding(
           severity: UrlSeverity.info,
-          title: 'The site answered with an unusual code',
+          title: 'The site answered with an unusual code.',
           detail: 'Unexpected response ($code). It may still work in a normal browser.'
         );
     }

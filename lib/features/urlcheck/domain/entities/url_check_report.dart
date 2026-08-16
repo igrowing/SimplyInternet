@@ -9,14 +9,15 @@ enum UrlSeverity { ok, info, warning, problem }
 class UrlFinding extends Equatable {
   const UrlFinding({
     required this.severity,
-    required this.title,
     required this.detail,
+    this.title,
   });
 
   final UrlSeverity severity;
 
-  /// Short headline, e.g. "Access denied (403)".
-  final String title;
+  /// Short headline, e.g. "Access denied (403)". Optional: when the detail
+  /// says it all, leaving this out saves a line rather than repeating it.
+  final String? title;
 
   /// What it means and what the user can do, in non-technical language.
   final String detail;

@@ -151,6 +151,9 @@ class _FindingCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    // A finding that carries no title — or one already said by the headline —
+    // shows its detail alone rather than an empty line where a title would be.
+    final title = showTitle ? finding.title : null;
     return Card(
       color: theme.colorScheme.surfaceContainerHighest,
       child: Padding(
@@ -164,9 +167,9 @@ class _FindingCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (showTitle) ...[
+                  if (title != null) ...[
                     Text(
-                      finding.title,
+                      title,
                       style: theme.textTheme.titleSmall?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
