@@ -20,6 +20,9 @@ with it.
   services (listed below) so the app can tell you what's actually wrong.
   These services see only technical connection data, never anything that
   identifies you personally.
+- Speed measurement transfers real data, so it uses **mobile data only when
+  mobile data is the connection you are already on**, or when you explicitly
+  ask to repeat the test over it (see Section 2).
 - There are **no ads, no analytics, no tracking, no telemetry, no accounts**.
 - The app is **open source** — you can inspect every line of code at
   [github.com/igrowing/SimplyInternet](https://github.com/igrowing/SimplyInternet).
@@ -56,6 +59,21 @@ router, and run the diagnostic and website-check probes described below. All
 of these operations are initiated explicitly by you, by tapping "Find the
 problem" or "Check it". Results are displayed on screen only.
 
+### Mobile data usage during speed measurement
+
+The connection check measures download and upload speed, which means moving
+real data — roughly 5–15 MB per run, depending on how fast the line is. The app
+measures whichever connection the device is already using and never switches
+the connection itself, so mobile data is consumed only when:
+
+1. **Wi-Fi is not connected.** Mobile data is then the only Internet available,
+   so it is what gets measured.
+2. **You choose to repeat the test over mobile data** after a Wi-Fi run.
+   Choosing that option is your acknowledgement of the data usage.
+
+The app never runs a speed measurement over mobile data while Wi-Fi is working,
+and never runs one in the background: every check starts with a button tap.
+
 SimplyInternet does **not** request `CHANGE_WIFI_STATE`, does **not** run a
 foreground service, and does **not** request notification permission — it
 has no background or persistent processes.
@@ -71,8 +89,15 @@ router, generic 204 "connectivity check" endpoints (Google's
 `connectivitycheck.gstatic.com` and Cloudflare's `cp.cloudflare.com`), a
 public-IP/country lookup via Cloudflare's trace endpoint
 (`www.cloudflare.com/cdn-cgi/trace`), reachability of a few popular sites, DNS
-resolution, and an optional speed test against Cloudflare
-(`speed.cloudflare.com`).
+resolution, and a speed measurement against Cloudflare
+(`speed.cloudflare.com`) — download first, then upload, never both at once.
+
+It also measures connection quality: short bursts of ICMP "ping" probes to your
+own router and to Cloudflare's public resolver (`1.1.1.1`) to derive response
+time, jitter and packet loss, plus the response time measured while the download
+is running. The exact list of checks performed and the amount of data sent and
+received by each one is shown to you under "Technical details" on the result
+screen.
 
 None of these requests include your name, account details, or any identifier
 beyond your device's public IP address — which is inherent to how the

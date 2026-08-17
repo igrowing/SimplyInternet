@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:simply_internet/features/diagnostics/domain/entities/capability.dart';
 import 'package:simply_internet/features/diagnostics/domain/entities/diagnosis_report.dart';
 import 'package:simply_internet/features/diagnostics/domain/entities/solution.dart';
 import 'package:simply_internet/features/diagnostics/presentation/controllers/diagnosis_controller.dart';
+import 'package:simply_internet/features/diagnostics/presentation/widgets/technical_details.dart';
 import 'package:simply_internet/features/diagnostics/presentation/widgets/verdict_visuals.dart';
 
 /// Renders a finished [DiagnosisReport]: the verdict headline, the plain
@@ -39,6 +41,10 @@ class ResultView extends StatelessWidget {
           style: theme.textTheme.bodyLarge,
         ),
         const SizedBox(height: 24),
+        if (report.capability != null) ...[
+          _CapabilityList(assessment: report.capability!),
+          const SizedBox(height: 16),
+        ],
         if (report.solution != null) ...[
           Card(
             color: theme.colorScheme.surfaceContainerHighest,
@@ -54,11 +60,13 @@ class ResultView extends StatelessWidget {
                       Text('What to do', style: theme.textTheme.titleMedium),
                     ],
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    report.solution!.message,
-                    style: theme.textTheme.bodyMedium,
-                  ),
+                  if (report.solution!.message.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      report.solution!.message,
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                  ],
                   const SizedBox(height: 12),
                   ...report.solution!.actions.map(
                     (a) => Padding(
@@ -85,7 +93,7 @@ class ResultView extends StatelessWidget {
           label: const Text('Back'),
         ),
         const SizedBox(height: 8),
-        _DiagnosticLog(log: report.log),
+        TechnicalDetails(log: report.log),
       ],
     );
   }
@@ -139,30 +147,57 @@ class ResultView extends StatelessWidget {
         return Icons.dns;
       case SolutionActionType.retry:
         return Icons.refresh;
+      case SolutionActionType.retestOverMobile:
+        return Icons.signal_cellular_alt;
+      case SolutionActionType.retestOverWifi:
+        return Icons.wifi;
       case SolutionActionType.advisory:
         return Icons.info_outline;
     }
   }
 }
 
-class _DiagnosticLog extends StatelessWidget {
-  const _DiagnosticLog({required this.log});
+/// The full "good for …" list, collapsed by default: the headline already names
+/// the few activities that matter, this is for the user who wants all of them.
+class _CapabilityList extends StatelessWidget {
+  const _CapabilityList({required this.assessment});
 
-  final List<String> log;
+  final CapabilityAssessment assessment;
 
   @override
   Widget build(BuildContext context) {
-    if (log.isEmpty) return const SizedBox.shrink();
+    final theme = Theme.of(context);
+    final fits = assessment.supported.length;
     return ExpansionTile(
-      title: const Text('Technical details'),
-      childrenPadding: const EdgeInsets.symmetric(horizontal: 16),
+      title: Text(
+        'What your connection can do ($fits of '
+        '${assessment.outcomes.length})',
+      ),
+      childrenPadding: const EdgeInsets.symmetric(horizontal: 8),
       children: [
-        for (final line in log)
-          Align(
-            alignment: Alignment.centerLeft,
+        for (final outcome in assessment.outcomes)
+          ListTile(
+            dense: true,
+            leading: Icon(
+              outcome.supported ? Icons.check_circle : Icons.cancel,
+              color: outcome.supported
+                  ? Colors.green.shade700
+                  : Colors.amber.shade800,
+            ),
+            title: Text(outcome.name),
+            subtitle: outcome.supported
+                ? null
+                : Text(
+                    outcome.shortfalls.map((s) => s.text).join(', '),
+                    style: theme.textTheme.bodySmall,
+                  ),
+          ),
+        if (!assessment.uploadMeasured)
+          Padding(
+            padding: const EdgeInsets.all(8),
             child: Text(
-              line,
-              style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+              'Upload could not be measured, so upload needs were not judged.',
+              style: theme.textTheme.bodySmall,
             ),
           ),
       ],

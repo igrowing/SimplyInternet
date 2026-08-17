@@ -51,7 +51,43 @@ const List<({String host, int port, String service})> kPortProbeTargets = [
 /// Destination used for the ISP path (traceroute) check.
 const String kPathProbeHost = '1.1.1.1';
 
-/// Below this download rate (Mbps) the connection is flagged as *possibly*
-/// throttled/shaped. Deliberately conservative — shaping is reported as a
-/// possibility, never a certainty.
-const double kThrottleSuspicionMbps = 1.5;
+/// Cap on the route trace. Every hop that never answers costs its own probe
+/// timeout, so an unreachable destination is the slowest check in the whole
+/// diagnosis; the verdict only needs to know whether the destination was ever
+/// reached, and 20 s is long enough to establish that.
+const Duration kTraceTimeout = Duration(seconds: 20);
+
+/// Public host pinged to sample Internet latency, jitter and packet loss.
+const String kLatencyProbeHost = '1.1.1.1';
+
+/// Probes per latency sample set. Ten is enough for a stable jitter and loss
+/// figure while the whole set still finishes inside the parallel probe phase,
+/// so it costs no extra wall-clock time.
+const int kLatencySamples = 10;
+
+/// Gap between latency probes.
+const Duration kLatencyInterval = Duration(milliseconds: 200);
+
+/// The throughput probes are time-boxed rather than size-boxed: a fixed byte
+/// count makes the slowest links — exactly the ones that need a verdict — wait
+/// the longest or report nothing at all.
+const Duration kDownloadWindow = Duration(seconds: 5);
+const Duration kUploadWindow = Duration(seconds: 3);
+
+/// Endpoints of the throughput probes (Cloudflare's public speed service).
+const String kDownloadUrl = 'https://speed.cloudflare.com/__down?bytes=';
+const String kUploadUrl = 'https://speed.cloudflare.com/__up';
+
+/// Chunk posted repeatedly by the upload probe (256 kB).
+const int kUploadChunkBytes = 256 * 1024;
+
+/// Bytes requested per download request, repeated until the window closes.
+///
+/// The service refuses oversized requests with a 403 and a one-byte body, so
+/// the size must stay inside what it serves (25 MB is accepted, 100 MB is not)
+/// instead of asking for one huge object and cutting it short.
+const int kDownloadChunkBytes = 25 * 1000 * 1000;
+
+/// At most this many activities may fail before the connection is described as
+/// degraded rather than "good for everything except …".
+const int kMostlyGoodFailureLimit = 3;

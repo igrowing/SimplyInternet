@@ -29,14 +29,17 @@ enum VerdictCategory {
   /// A specific port is blocked by a firewall while others work.
   portBlocked,
 
-  /// Throughput is suspiciously low — throttling is possible (not certain).
-  trafficShaping,
-
   /// A hop inside the ISP/backbone drops traffic before the destination.
   ispPathProblem,
 
-  /// Every check passed — the connection is healthy.
-  allClear,
+  /// The connection works and every everyday activity fits.
+  connectionGood,
+
+  /// The connection works and all but a few activities fit.
+  connectionMostlyGood,
+
+  /// The connection works but is too weak or unstable for most activities.
+  connectionDegraded,
 }
 
 /// Immutable outcome of a diagnosis: one [VerdictCategory] with human-facing
@@ -58,7 +61,12 @@ class Verdict extends Equatable {
   /// The concrete value some verdicts must name (e.g. "443", "10.0.0.1").
   final String? detailArg;
 
-  bool get isHealthy => category == VerdictCategory.allClear;
+  /// True when nothing is broken — the link carries traffic, even if it is not
+  /// good enough for everything.
+  bool get isHealthy =>
+      category == VerdictCategory.connectionGood ||
+      category == VerdictCategory.connectionMostlyGood ||
+      category == VerdictCategory.connectionDegraded;
 
   @override
   List<Object?> get props => [category, title, detail, detailArg];

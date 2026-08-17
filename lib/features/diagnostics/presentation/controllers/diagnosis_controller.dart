@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:simply_internet/core/retest/cross_medium_retest.dart';
 import 'package:simply_internet/features/diagnostics/domain/entities/diagnosis_report.dart';
 import 'package:simply_internet/features/diagnostics/domain/entities/solution.dart';
 import 'package:simply_internet/features/diagnostics/domain/repositories/device_actions.dart';
@@ -15,10 +16,12 @@ class DiagnosisController extends ChangeNotifier {
     required RunDiagnosis runDiagnosis,
     required DeviceActions deviceActions,
   }) : _runDiagnosis = runDiagnosis,
-       _deviceActions = deviceActions;
+       _deviceActions = deviceActions,
+       _retest = CrossMediumRetest(deviceActions);
 
   final RunDiagnosis _runDiagnosis;
   final DeviceActions _deviceActions;
+  final CrossMediumRetest _retest;
 
   DiagnosisStatus _status = DiagnosisStatus.idle;
   DiagnosisStatus get status => _status;
@@ -34,6 +37,8 @@ class DiagnosisController extends ChangeNotifier {
 
   bool get isRunning => _status == DiagnosisStatus.running;
 
+  bool get retestPending => _retest.pending;
+
   /// Run the full diagnosis. Safe to call repeatedly (ignored while running).
   Future<void> run() async {
     if (_status == DiagnosisStatus.running) return;
@@ -43,6 +48,9 @@ class DiagnosisController extends ChangeNotifier {
     _phase = DiagnosisPhase.connection;
     notifyListeners();
 
+    // The run takes seconds and the user is only watching; a dark screen mid
+    // check looks like a hang.
+    await _deviceActions.keepScreenOn(on: true);
     try {
       final report = await _runDiagnosis.call(
         onPhase: (p) {
@@ -55,15 +63,22 @@ class DiagnosisController extends ChangeNotifier {
     } on Exception catch (e) {
       _error = e.toString();
       _status = DiagnosisStatus.error;
+    } finally {
+      await _deviceActions.keepScreenOn(on: false);
     }
     notifyListeners();
   }
+
+  /// Runs the pending cross-medium retest, if the user asked for one before
+  /// leaving for the settings panel. Called when the app is resumed.
+  Future<void> runPendingRetest() => _retest.runIfPending(run);
 
   /// Return to the initial screen.
   void reset() {
     _status = DiagnosisStatus.idle;
     _report = null;
     _error = null;
+    _retest.cancel();
     notifyListeners();
   }
 
@@ -90,6 +105,10 @@ class DiagnosisController extends ChangeNotifier {
         return _deviceActions.openUrl(url);
       case SolutionActionType.retry:
         await run();
+        return true;
+      case SolutionActionType.retestOverMobile:
+      case SolutionActionType.retestOverWifi:
+        await _retest.arm();
         return true;
       case SolutionActionType.advisory:
         return false;

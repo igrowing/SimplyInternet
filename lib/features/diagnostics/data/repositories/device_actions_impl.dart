@@ -21,6 +21,10 @@ class DeviceActionsImpl implements DeviceActions {
   Future<void> openPrivateDnsSettings() => _platform.openPrivateDnsSettings();
 
   @override
+  Future<void> keepScreenOn({required bool on}) =>
+      _platform.keepScreenOn(on: on);
+
+  @override
   Future<bool> openUrl(String url) async {
     final uri = Uri.tryParse(url);
     if (uri == null) return false;

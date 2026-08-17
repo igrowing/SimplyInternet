@@ -20,4 +20,8 @@ abstract class DeviceActions {
 
   /// Launch [url] (a captive-portal sign-in page) in the browser.
   Future<bool> openUrl(String url);
+
+  /// Hold the display on while a check runs, so the screen does not go dark
+  /// mid-diagnosis, and release it when the check is over.
+  Future<void> keepScreenOn({required bool on});
 }

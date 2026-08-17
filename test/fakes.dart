@@ -1,3 +1,6 @@
+import 'dart:io';
+import 'package:simply_internet/features/diagnostics/domain/entities/data_usage.dart';
+import 'package:simply_internet/features/diagnostics/domain/entities/link_quality.dart';
 import 'package:simply_internet/features/diagnostics/domain/entities/network_facts.dart';
 import 'package:simply_internet/features/diagnostics/domain/repositories/device_actions.dart';
 import 'package:simply_internet/features/diagnostics/domain/repositories/network_probe.dart';
@@ -22,7 +25,22 @@ class FakeNetworkProbe implements NetworkProbe {
       PortProbeResult(port: 80, service: 'HTTP', reachable: true),
       PortProbeResult(port: 53, service: 'DNS', reachable: true),
     ],
-    this.speed = const SpeedResult(downloadMbps: 50, ok: true),
+    this.speed = const SpeedResult(
+      downloadMbps: 50,
+      ok: true,
+      uploadMbps: 20,
+      bytesReceived: 6000000,
+      bytesSent: 3000000,
+    ),
+    this.quality = const LinkQuality(
+      gateway: LatencyStats(sent: 10, rttsMs: [2, 2, 3, 2, 2, 3, 2, 2, 3, 2]),
+      internet: LatencyStats(
+        sent: 10,
+        rttsMs: [15, 16, 15, 17, 15, 16, 15, 16, 15, 16],
+      ),
+      loadedRttMs: 22,
+    ),
+    this.usage = const DataUsage.empty(),
     this.path = const IspPathResult(
       reachedDestination: true,
       lastRespondingHop: '1.1.1.1',
@@ -31,6 +49,7 @@ class FakeNetworkProbe implements NetworkProbe {
     this.sites = const [
       SiteReachability(host: 'google.com', label: 'Google', reachable: true),
     ],
+    this.throwOnConnectivity = false,
   });
 
   ConnectivityStatus connectivityResult;
@@ -41,12 +60,33 @@ class FakeNetworkProbe implements NetworkProbe {
   bool dnsOk;
   List<PortProbeResult> ports;
   SpeedResult speed;
+  LinkQuality quality;
+  DataUsage usage;
   IspPathResult path;
   String? country;
   List<SiteReachability> sites;
 
+  /// Makes the first probe fail, so tests can exercise the error path.
+  bool throwOnConnectivity;
+
+  /// Probe names in the order they were invoked, so tests can assert that the
+  /// idle latency samples are taken before the link is saturated.
+  final List<String> calls = [];
+
+  /// How many times each slow probe ran. A diagnosis that has already found a
+  /// hard failure must not pay for these at all, so the count is the evidence
+  /// that it fails fast.
+  int tracePathCount = 0;
+  int portsCount = 0;
+  int popularSitesCount = 0;
+
   @override
-  Future<ConnectivityStatus> connectivity() async => connectivityResult;
+  Future<ConnectivityStatus> connectivity() async {
+    if (throwOnConnectivity) {
+      throw const SocketException('no interface');
+    }
+    return connectivityResult;
+  }
 
   @override
   Future<String?> gatewayIp() async => gateway;
@@ -64,20 +104,61 @@ class FakeNetworkProbe implements NetworkProbe {
   Future<bool> dnsResolves(String host) async => dnsOk;
 
   @override
-  Future<List<PortProbeResult>> probeCommonPorts() async => ports;
+  Future<List<PortProbeResult>> probeCommonPorts() async {
+    portsCount++;
+    return ports;
+  }
 
   @override
-  Future<SpeedResult> measureSpeed() async => speed;
+  Future<SpeedResult> measureThroughput() async {
+    calls.add('throughput');
+    return speed;
+  }
 
   @override
-  Future<IspPathResult> tracePath(String host) async => path;
+  Future<LinkQuality> measureLinkQuality({String? gatewayIp}) async {
+    calls.add('quality');
+    return quality;
+  }
+
+  /// Records left over from an earlier run, as the real probe holds them: it
+  /// is a singleton, so anything it measured before is still in its list until
+  /// something clears it. A probe that is never reset keeps serving these
+  /// alongside the current run, which is exactly the contradiction — "the
+  /// router is not responding" beside a 20 MB speed test — that [resetUsage]
+  /// exists to prevent.
+  DataUsage staleUsage = const DataUsage.empty();
+
+  bool _wasReset = false;
+
+  /// How many times the run asked for a clean slate.
+  int resetUsageCount = 0;
+
+  @override
+  DataUsage dataUsage() => _wasReset
+      ? usage
+      : DataUsage([...staleUsage.records, ...usage.records]);
+
+  @override
+  void resetUsage() {
+    resetUsageCount++;
+    _wasReset = true;
+  }
+
+  @override
+  Future<IspPathResult> tracePath(String host) async {
+    tracePathCount++;
+    return path;
+  }
 
   @override
   Future<String?> detectCountryCode() async => country;
 
   @override
-  Future<List<SiteReachability>> checkPopularSites(String? countryCode) async =>
-      sites;
+  Future<List<SiteReachability>> checkPopularSites(String? countryCode) async {
+    popularSitesCount++;
+    return sites;
+  }
 }
 
 /// Records the device actions requested so tests can assert on them.
@@ -96,6 +177,10 @@ class FakeDeviceActions implements DeviceActions {
 
   @override
   Future<void> openPrivateDnsSettings() async => calls.add('dns');
+
+  @override
+  Future<void> keepScreenOn({required bool on}) async =>
+      calls.add(on ? 'screenOn' : 'screenOff');
 
   @override
   Future<bool> openUrl(String url) async {

@@ -7,16 +7,13 @@ enum UrlSeverity { ok, info, warning, problem }
 /// One plain-language finding about the checked URL.
 @immutable
 class UrlFinding extends Equatable {
-  const UrlFinding({
-    required this.severity,
-    required this.title,
-    required this.detail,
-  });
+  const UrlFinding({required this.severity, required this.detail, this.title});
 
   final UrlSeverity severity;
 
-  /// Short headline, e.g. "Access denied (403)".
-  final String title;
+  /// Short headline, e.g. "Access denied (403)". Optional: when the detail
+  /// says it all, leaving this out saves a line rather than repeating it.
+  final String? title;
 
   /// What it means and what the user can do, in non-technical language.
   final String detail;
@@ -34,6 +31,7 @@ class UrlCheckReport extends Equatable {
     required this.reachable,
     required this.headline,
     required this.findings,
+    this.advice = const [],
     this.log = const [],
   });
 
@@ -48,6 +46,12 @@ class UrlCheckReport extends Equatable {
 
   final List<UrlFinding> findings;
 
+  /// What the user should do about it, one instruction per line. Kept apart
+  /// from the findings on purpose: a finding explains the cause, and mixing
+  /// the instructions into that sentence buries the only part the user has to
+  /// act on. Empty when there is nothing to do.
+  final List<String> advice;
+
   /// Raw technical lines for the expandable "Technical details" section.
   final List<String> log;
 
@@ -61,5 +65,5 @@ class UrlCheckReport extends Equatable {
   }
 
   @override
-  List<Object?> get props => [url, reachable, headline, findings, log];
+  List<Object?> get props => [url, reachable, headline, findings, advice, log];
 }

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:http/http.dart' as http;
@@ -7,9 +8,21 @@ import 'package:network_info_plus/network_info_plus.dart';
 import 'package:simply_internet/features/diagnostics/data/datasources/platform_actions_datasource.dart';
 import 'package:simply_internet/features/diagnostics/data/datasources/vendor/network_tools.dart';
 import 'package:simply_internet/features/diagnostics/domain/entities/check_endpoints.dart';
+import 'package:simply_internet/features/diagnostics/domain/entities/data_usage.dart';
+import 'package:simply_internet/features/diagnostics/domain/entities/link_quality.dart';
 import 'package:simply_internet/features/diagnostics/domain/entities/network_facts.dart';
 import 'package:simply_internet/features/diagnostics/domain/entities/popular_sites.dart';
 import 'package:simply_internet/features/diagnostics/domain/repositories/network_probe.dart';
+
+/// Sends [count] ICMP echoes to a host and returns the round-trip times that
+/// came back. Injected rather than called directly so a test can measure the
+/// probes that use it without spawning `ping` (see [NetworkProbeImpl]).
+typedef PingRtts =
+    Future<List<double>> Function(
+      String host, {
+      required int count,
+      required Duration interval,
+    });
 
 /// Concrete [NetworkProbe] built on `connectivity_plus`, `network_info_plus`,
 /// `dart:io` sockets, `http`, and the vendored SimplyNet [NetworkTools]
@@ -21,23 +34,64 @@ class NetworkProbeImpl implements NetworkProbe {
     NetworkInfo? networkInfo,
     PlatformActionsDatasource platform = const PlatformActionsDatasource(),
     http.Client Function()? clientFactory,
+    PingRtts? pingRtts,
   }) : _connectivity = connectivity ?? Connectivity(),
        _networkInfo = networkInfo ?? NetworkInfo(),
        _platform = platform,
-       _clientFactory = clientFactory ?? http.Client.new;
+       _clientFactory = clientFactory ?? http.Client.new,
+       _pingRtts = pingRtts ?? NetworkTools.pingRtts;
 
   final Connectivity _connectivity;
   final NetworkInfo _networkInfo;
   final PlatformActionsDatasource _platform;
   final http.Client Function() _clientFactory;
 
+  /// How latency is sampled. The throughput probe pings while the line is busy,
+  /// so a test that only replaces the HTTP client would still shell out to
+  /// `ping` — and on a host where ICMP is dropped (CI runners typically drop
+  /// it) each sample set costs tens of seconds of timeouts.
+  final PingRtts _pingRtts;
+
+  /// Everything this probe did on the network, in the order it happened.
+  final List<ProbeRecord> _records = [];
+
+  @override
+  DataUsage dataUsage() => DataUsage(List.unmodifiable(_records));
+
+  @override
+  void resetUsage() => _records.clear();
+
+  void _record(
+    String test,
+    String target, {
+    int bytesSent = 0,
+    int bytesReceived = 0,
+  }) {
+    _records.add(
+      ProbeRecord(
+        test: test,
+        target: target,
+        bytesSent: bytesSent,
+        bytesReceived: bytesReceived,
+      ),
+    );
+  }
+
+  /// Payload of one ICMP echo (56 data bytes plus the 8-byte ICMP header),
+  /// used to account for what the latency probes cost.
+  static const int _icmpPacketBytes = 64;
+
   @override
   Future<ConnectivityStatus> connectivity() async {
     final results = await _connectivity.checkConnectivity();
     final airplane = await _platform.isAirplaneModeOn();
+    final kind = _mapConnectivity(results);
     return ConnectivityStatus(
-      kind: _mapConnectivity(results),
+      kind: kind,
       airplaneMode: airplane,
+      mobileSignalLevel: kind == ConnectivityKind.mobile
+          ? await _platform.mobileSignalLevel()
+          : null,
     );
   }
 
@@ -108,16 +162,22 @@ class NetworkProbeImpl implements NetworkProbe {
 
   @override
   Future<CaptivePortalResult> checkCaptivePortal() async {
+    // Probed together rather than one after the other: when the Internet is
+    // dead every endpoint runs into its own timeout, and in sequence the user
+    // waits for the sum of them before hearing anything.
+    final outcomes = await Future.wait(
+      kCheck204Endpoints.map((e) => _probe204(e.url)),
+    );
     var sawPortal = false;
     String? portalUrl;
-    for (final endpoint in kCheck204Endpoints) {
-      final outcome = await _probe204(endpoint.url);
+    for (var i = 0; i < outcomes.length; i++) {
+      final outcome = outcomes[i];
       switch (outcome.kind) {
         case _Http204Kind.clear:
           return const CaptivePortalResult.clear();
         case _Http204Kind.portal:
           sawPortal = true;
-          portalUrl ??= outcome.portalUrl ?? endpoint.url;
+          portalUrl ??= outcome.portalUrl ?? kCheck204Endpoints[i].url;
         case _Http204Kind.unreachable:
           break;
       }
@@ -130,6 +190,15 @@ class NetworkProbeImpl implements NetworkProbe {
     return const CaptivePortalResult.noInternet();
   }
 
+  /// Names the 204 endpoints that were probed for the transparency list.
+  void _recordCaptiveProbe(String url, int bytesReceived) {
+    _record(
+      'Internet / captive-portal check',
+      Uri.parse(url).host,
+      bytesReceived: bytesReceived,
+    );
+  }
+
   Future<_Http204Outcome> _probe204(String url) async {
     final client = _clientFactory();
     try {
@@ -140,6 +209,7 @@ class NetworkProbeImpl implements NetworkProbe {
           .send(request)
           .timeout(const Duration(seconds: 6));
       final response = await http.Response.fromStream(streamed);
+      _recordCaptiveProbe(url, response.bodyBytes.length);
       final code = response.statusCode;
       if (code == 204 && response.bodyBytes.isEmpty) {
         return const _Http204Outcome(_Http204Kind.clear);
@@ -153,10 +223,13 @@ class NetworkProbeImpl implements NetworkProbe {
       // Any other answer (200 with a login page, 511, etc.) is a portal.
       return _Http204Outcome(_Http204Kind.portal, portalUrl: url);
     } on TimeoutException {
+      _recordCaptiveProbe(url, 0);
       return const _Http204Outcome(_Http204Kind.unreachable);
     } on http.ClientException {
+      _recordCaptiveProbe(url, 0);
       return const _Http204Outcome(_Http204Kind.unreachable);
     } on SocketException {
+      _recordCaptiveProbe(url, 0);
       return const _Http204Outcome(_Http204Kind.unreachable);
     } finally {
       client.close();
@@ -165,6 +238,7 @@ class NetworkProbeImpl implements NetworkProbe {
 
   @override
   Future<bool> dnsResolves(String host) async {
+    _record('DNS resolution', host);
     try {
       final addrs = await InternetAddress.lookup(
         host,
@@ -182,34 +256,114 @@ class NetworkProbeImpl implements NetworkProbe {
     final out = <PortProbeResult>[];
     for (final t in kPortProbeTargets) {
       final ok = await tcpReachable(t.host, t.port);
+      _record('Port ${t.port}/${t.service}', t.host);
       out.add(PortProbeResult(port: t.port, service: t.service, reachable: ok));
     }
     return out;
   }
 
   @override
-  Future<SpeedResult> measureSpeed() async {
-    const bytes = 8 * 1000 * 1000; // ~8 MB sample
-    final uri = Uri.parse('https://speed.cloudflare.com/__down?bytes=$bytes');
+  Future<LinkQuality> measureLinkQuality({String? gatewayIp}) async {
+    final gateway = gatewayIp == null
+        ? const LatencyStats.unavailable()
+        : await _sampleLatency('Router latency', gatewayIp);
+    final internet = await _sampleLatency(
+      'Internet latency',
+      kLatencyProbeHost,
+    );
+    return LinkQuality(gateway: gateway, internet: internet);
+  }
+
+  Future<LatencyStats> _sampleLatency(String test, String host) async {
+    final rtts = await _pingRtts(
+      host,
+      count: kLatencySamples,
+      interval: kLatencyInterval,
+    );
+    const bytes = _icmpPacketBytes * kLatencySamples;
+    _record(
+      test,
+      host,
+      bytesSent: bytes,
+      bytesReceived: _icmpPacketBytes * rtts.length,
+    );
+    return LatencyStats(sent: kLatencySamples, rttsMs: rtts);
+  }
+
+  @override
+  Future<SpeedResult> measureThroughput() async {
+    // Sequential on purpose: run together, the two directions contend for the
+    // same link and both rates come out wrong.
+    final download = await _measureDownload();
+    if (!download.ok) return download;
+    final upload = await _measureUpload();
+    return SpeedResult(
+      downloadMbps: download.downloadMbps,
+      ok: true,
+      uploadMbps: upload?.mbps,
+      bytesReceived: download.bytesReceived,
+      bytesSent: upload?.bytes ?? 0,
+      loadedRttMs: download.loadedRttMs,
+    );
+  }
+
+  /// Downloads for at most [kDownloadWindow] and derives the rate from whatever
+  /// arrived, so a slow link reports a low speed instead of timing out. The
+  /// round-trip time is sampled while the bytes are flowing, to expose
+  /// saturation.
+  Future<SpeedResult> _measureDownload() async {
+    final uri = Uri.parse('$kDownloadUrl$kDownloadChunkBytes');
     final client = _clientFactory();
+    // Sampled through the same helper as the idle probes so the packets it
+    // costs land in the transparency list like every other test. Started only
+    // once the service has actually answered 200, for two reasons: a refused
+    // request ends the probe at once and there is then no load to measure, and
+    // a sample left running past that exit would append its record whenever it
+    // finished — possibly after the next diagnosis had already cleared the
+    // list, putting a busy-line measurement in a report that never downloaded
+    // anything.
+    Future<LatencyStats>? loadedLatency;
+    var received = 0;
     try {
-      final request = http.Request('GET', uri)
-        ..headers['User-Agent'] = 'SimplyInternet/1.0';
       final sw = Stopwatch()..start();
-      final streamed = await client
-          .send(request)
-          .timeout(const Duration(seconds: 8));
-      var received = 0;
-      await for (final chunk in streamed.stream.timeout(
-        const Duration(seconds: 8),
-      )) {
-        received += chunk.length;
+      // Requests of a size the service actually serves, repeated until the
+      // window closes: a fast link needs several, a slow one is cut off part
+      // way through the first and still reports its real rate.
+      while (sw.elapsed < kDownloadWindow) {
+        final request = http.Request('GET', uri)
+          ..headers['User-Agent'] = 'SimplyInternet/1.0';
+        final streamed = await client
+            .send(request)
+            .timeout(const Duration(seconds: 8));
+        // A refusal must not be mistaken for a very slow link: its short error
+        // body would otherwise be reported as a fraction of a Mbps.
+        if (streamed.statusCode != 200) {
+          return const SpeedResult.unavailable();
+        }
+        // The line is now carrying the transfer, which is the only condition
+        // under which this figure means anything. Only the first response
+        // starts it; the later requests are the same busy period continuing.
+        loadedLatency ??= _sampleLatency(
+          'Response time while the line is busy',
+          kLatencyProbeHost,
+        );
+        await for (final chunk in streamed.stream.timeout(
+          const Duration(seconds: 8),
+        )) {
+          received += chunk.length;
+          if (sw.elapsed >= kDownloadWindow) break;
+        }
       }
       sw.stop();
       final seconds = sw.elapsedMilliseconds / 1000.0;
+      final underLoad = await loadedLatency;
       if (received <= 0 || seconds <= 0) return const SpeedResult.unavailable();
-      final mbps = (received * 8) / seconds / 1000000.0;
-      return SpeedResult(downloadMbps: mbps, ok: true);
+      return SpeedResult(
+        downloadMbps: (received * 8) / seconds / 1000000.0,
+        ok: true,
+        bytesReceived: received,
+        loadedRttMs: underLoad?.avgMs,
+      );
     } on TimeoutException {
       return const SpeedResult.unavailable();
     } on http.ClientException {
@@ -217,12 +371,61 @@ class NetworkProbeImpl implements NetworkProbe {
     } on SocketException {
       return const SpeedResult.unavailable();
     } finally {
+      // A transfer that died part way through leaves a sample in flight. It
+      // belongs to this run, so it is waited for here rather than abandoned:
+      // an orphan would record itself into whichever run happened to be
+      // current when its last probe timed out. Errors are swallowed so a
+      // failed sample cannot displace the download's own failure.
+      await loadedLatency?.then<void>((_) {}, onError: (Object _) {});
+      // Recorded here rather than on the happy path only: a refused or
+      // interrupted transfer still moved these bytes, and leaving them out is
+      // what made the totals disagree with the measured rate.
+      _record('Download speed', uri.host, bytesReceived: received);
+      client.close();
+    }
+  }
+
+  /// Posts a repeating chunk for at most [kUploadWindow]. Upload is what video
+  /// calls actually run out of, so it is measured rather than inferred.
+  Future<({double mbps, int bytes})?> _measureUpload() async {
+    final client = _clientFactory();
+    final chunk = Uint8List(kUploadChunkBytes);
+    var sent = 0;
+    final sw = Stopwatch()..start();
+    try {
+      while (sw.elapsed < kUploadWindow) {
+        final response = await client
+            .post(
+              Uri.parse(kUploadUrl),
+              headers: const {
+                'User-Agent': 'SimplyInternet/1.0',
+                'Content-Type': 'application/octet-stream',
+              },
+              body: chunk,
+            )
+            .timeout(kUploadWindow + const Duration(seconds: 3));
+        if (response.statusCode >= 400) break;
+        sent += chunk.length;
+      }
+      sw.stop();
+      final seconds = sw.elapsedMilliseconds / 1000.0;
+      if (sent <= 0 || seconds <= 0) return null;
+      return (mbps: (sent * 8) / seconds / 1000000.0, bytes: sent);
+    } on TimeoutException {
+      return null;
+    } on http.ClientException {
+      return null;
+    } on SocketException {
+      return null;
+    } finally {
+      _record('Upload speed', Uri.parse(kUploadUrl).host, bytesSent: sent);
       client.close();
     }
   }
 
   @override
   Future<IspPathResult> tracePath(String host) async {
+    _record('Route to the Internet (traceroute)', host);
     try {
       var reached = false;
       String? lastHop;
@@ -230,7 +433,7 @@ class NetworkProbeImpl implements NetworkProbe {
       await for (final hop in NetworkTools.tracerouteHops(
         host,
         maxHops: 20,
-      ).timeout(const Duration(seconds: 60))) {
+      ).timeout(kTraceTimeout)) {
         if (hop.ip != null) {
           lastHop = hop.hostname != null
               ? '${hop.hostname} (${hop.ip})'
@@ -259,9 +462,13 @@ class NetworkProbeImpl implements NetworkProbe {
   Future<String?> detectCountryCode() async {
     final client = _clientFactory();
     try {
-      final resp = await client
-          .get(Uri.parse('https://www.cloudflare.com/cdn-cgi/trace'))
-          .timeout(const Duration(seconds: 6));
+      final uri = Uri.parse('https://www.cloudflare.com/cdn-cgi/trace');
+      final resp = await client.get(uri).timeout(const Duration(seconds: 6));
+      _record(
+        'Country detection',
+        uri.host,
+        bytesReceived: resp.bodyBytes.length,
+      );
       if (resp.statusCode != 200) return null;
       for (final line in resp.body.split('\n')) {
         if (line.startsWith('loc=')) {
@@ -284,6 +491,7 @@ class NetworkProbeImpl implements NetworkProbe {
   @override
   Future<List<SiteReachability>> checkPopularSites(String? countryCode) async {
     final targets = PopularSites.targetsFor(countryCode);
+    _record('Popular sites reachability (${targets.length})', 'port 443');
     final futures = targets.map((site) async {
       final ok = await tcpReachable(site.host, 443);
       return SiteReachability(

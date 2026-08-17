@@ -1,3 +1,5 @@
+import 'package:simply_internet/features/diagnostics/domain/entities/capability.dart';
+import 'package:simply_internet/features/diagnostics/domain/entities/link_quality.dart';
 import 'package:simply_internet/features/diagnostics/domain/entities/network_facts.dart';
 import 'package:simply_internet/features/diagnostics/domain/entities/solution.dart';
 import 'package:simply_internet/features/diagnostics/domain/entities/verdict.dart';
@@ -148,7 +150,24 @@ class VerdictCatalog {
     );
   }
 
-  static ({Verdict verdict, Solution solution}) mobileDataNoInternet() {
+  /// [signalWeak] and [signalGood] come from the measured cellular signal, so
+  /// the advice only tells the user to move when reception is actually poor.
+  static ({Verdict verdict, Solution solution}) mobileDataNoInternet({
+    bool signalWeak = false,
+    bool signalGood = false,
+  }) {
+    final String reception;
+    if (signalGood) {
+      reception = 'Toggle mobile data off and on.';
+    } else if (signalWeak) {
+      reception =
+          'Your signal is weak: move to a spot with better reception and '
+          'toggle mobile data off and on.';
+    } else {
+      reception =
+          'Move to a spot with better signal, or toggle mobile data '
+          'off and on.';
+    }
     return (
       verdict: const Verdict(
         category: VerdictCategory.mobileNoData,
@@ -158,15 +177,14 @@ class VerdictCatalog {
             'through. This usually means data roaming is off, your data '
             'allowance is used up, or your carrier has a local outage.',
       ),
-      solution: const Solution(
+      solution: Solution(
         message:
             '1. If you are abroad or on another network, turn on data '
             'roaming in mobile settings.\n'
             '2. Check that you still have data allowance left on your plan.\n'
-            '3. Move to a spot with better signal, or toggle mobile data '
-            'off and on.\n'
+            '3. $reception\n'
             '4. If it still fails, contact your mobile carrier.',
-        actions: [
+        actions: const [
           SolutionAction(
             type: SolutionActionType.enableMobileData,
             label: 'Open mobile data settings',
@@ -240,34 +258,6 @@ class VerdictCatalog {
     );
   }
 
-  static ({Verdict verdict, Solution solution}) trafficShaping(
-    double downloadMbps,
-  ) {
-    final mbps = downloadMbps.toStringAsFixed(1);
-    return (
-      verdict: Verdict(
-        category: VerdictCategory.trafficShaping,
-        title: 'Possible throttling',
-        detail:
-            'Everything is connected, but the measured speed is very low '
-            '(about $mbps Mbps). Your traffic may be throttled or shaped. '
-            'This is a possibility, not a certainty.',
-        detailArg: mbps,
-      ),
-      solution: const Solution(
-        message:
-            'Try again at a different time, on a different network, or '
-            'using mobile data (not WiFi), or over a VPN to see if the '
-            'speed recovers. If only certain apps '
-            'are slow, your provider may be shaping that type of traffic — '
-            'contact them to confirm your plan speed.',
-        actions: [
-          SolutionAction(type: SolutionActionType.retry, label: 'Test again'),
-        ],
-      ),
-    );
-  }
-
   static ({Verdict verdict, Solution solution}) ispPathProblem(
     IspPathResult path,
   ) {
@@ -295,13 +285,223 @@ class VerdictCatalog {
     );
   }
 
-  static Verdict allClear() => const Verdict(
-    category: VerdictCategory.allClear,
-    title: 'All clear — no problem found',
-    detail:
-        'Your device is connected, the router responds, DNS works, '
-        'no ports are blocked and the Internet is reachable at a normal '
-        'speed. If something still feels wrong, it may be a specific app '
-        'or website rather than your connection.',
-  );
+  /// The verdict for a connection that is not broken: what it can and cannot
+  /// carry, rather than a bare "no problem found" that says nothing about a
+  /// link which is technically alive but too weak to use.
+  static ({Verdict verdict, Solution? solution}) capability({
+    required CapabilityAssessment assessment,
+    required ConnectivityKind medium,
+    required SpeedResult speed,
+    required LinkQuality quality,
+  }) {
+    final mediumName = mediumLabel(medium);
+
+    switch (assessment.kind) {
+      case CapabilityCase.good:
+        final uses = _names(_mostDemanding(assessment.supported, 4));
+        return (
+          verdict: Verdict(
+            category: VerdictCategory.connectionGood,
+            title: 'Your $mediumName is good for $uses — and more',
+            detail:
+                '${_measured(medium, speed)} If something still feels wrong, '
+                'it is most likely that one app or website, not your '
+                'connection.',
+          ),
+          solution: null,
+        );
+
+      case CapabilityCase.mostlyGood:
+        final failing = _names(assessment.unsupported.take(3).toList());
+        return (
+          verdict: Verdict(
+            category: VerdictCategory.connectionMostlyGood,
+            title: 'Your $mediumName is good for everything except $failing',
+            detail: _detail(assessment, medium, quality),
+            detailArg: failing,
+          ),
+          solution: _advice(assessment, medium, quality),
+        );
+
+      case CapabilityCase.degraded:
+        final failing = _names(assessment.unsupported.take(4).toList());
+        return (
+          verdict: Verdict(
+            category: VerdictCategory.connectionDegraded,
+            title: 'Your $mediumName is too weak for $failing',
+            detail: _detail(assessment, medium, quality),
+            detailArg: failing,
+          ),
+          solution: _advice(assessment, medium, quality),
+        );
+    }
+  }
+
+  /// How the tested link is named in every sentence the user reads, so the
+  /// report always states which medium the figures came from.
+  static String mediumLabel(ConnectivityKind kind) {
+    switch (kind) {
+      case ConnectivityKind.wifi:
+        return 'Wi-Fi';
+      case ConnectivityKind.mobile:
+        return 'mobile data';
+      case ConnectivityKind.ethernet:
+        return 'wired connection';
+      case ConnectivityKind.vpn:
+        return 'VPN connection';
+      case ConnectivityKind.other:
+      case ConnectivityKind.none:
+        return 'connection';
+    }
+  }
+
+  /// The figures for a healthy link: what it delivers, nothing else.
+  static String _measured(ConnectivityKind medium, SpeedResult speed) {
+    final parts = <String>[
+      if (speed.ok) 'download ${_rate(speed.downloadMbps)} Mbps',
+      if (speed.uploadMbps != null) 'upload ${_rate(speed.uploadMbps!)} Mbps',
+    ];
+    if (parts.isEmpty) return 'Measured over ${mediumLabel(medium)}.';
+    return 'Measured over ${mediumLabel(medium)}:\n${parts.join(', ')}.';
+  }
+
+  /// Why the connection falls short: only the measurements that actually miss
+  /// a limit, then the one sentence that explains where they come from. Every
+  /// instruction belongs to the solution, so the two never mix.
+  static String _detail(
+    CapabilityAssessment assessment,
+    ConnectivityKind medium,
+    LinkQuality quality,
+  ) {
+    final blame = assessment.worstShortfalls
+        .take(2)
+        .map((s) => s.text)
+        .join(', ');
+    final figures = blame.isEmpty
+        ? ''
+        : 'Measured over ${mediumLabel(medium)}:\n$blame. ';
+    final missing = assessment.uploadMeasured
+        ? ''
+        : 'The upload test could not run, so upload was not judged. ';
+    return '$figures$missing${_because(assessment, medium, quality)}'.trim();
+  }
+
+  /// The cause, with no instruction in it.
+  static String _because(
+    CapabilityAssessment assessment,
+    ConnectivityKind medium,
+    LinkQuality quality,
+  ) {
+    if (medium == ConnectivityKind.wifi && _gatewayWeak(quality)) {
+      return 'Your router answers slowly or drops packets, which points at '
+          'the Wi-Fi itself rather than your provider.';
+    }
+    if (_saturated(quality)) {
+      return 'The connection slows down sharply while it is busy. Someone or '
+          'something else on your network (a download, a backup, a TV) is '
+          'using the line.';
+    }
+    if (assessment.throughputOnlyProblem) {
+      return 'The connection speed is not sufficient. Either your Internet '
+          'plan is too low or your provider is throttling the line.';
+    }
+    return '';
+  }
+
+  /// What to do — instructions only, and never a repeat of the cause.
+  static Solution _advice(
+    CapabilityAssessment assessment,
+    ConnectivityKind medium,
+    LinkQuality quality,
+  ) {
+    const moveCloser =
+        'Move closer to the router, or try the 5 GHz network if your router '
+        'offers one.';
+    const pauseTheHog =
+        'Find who or what is using the line heavily and ask them to pause. '
+        'Otherwise wait, or restart your Wi-Fi — that cuts their connection '
+        'too.';
+    const dropTheCamera =
+        'Turn your camera off — your connection can still carry the audio.';
+    final steps = <String>[
+      if (medium == ConnectivityKind.wifi && _gatewayWeak(quality))
+        moveCloser
+      else if (_saturated(quality))
+        pauseTheHog,
+      if (assessment.voiceCallStillFits) dropTheCamera,
+    ];
+
+    return Solution(message: steps.join(' '), actions: retestActions(medium));
+  }
+
+  /// Offers a fresh test on the same medium and one on the alternative medium,
+  /// so a weak Wi-Fi result can be compared against mobile data (and back).
+  /// Choosing the mobile test is the user's acknowledgement of its data use.
+  static List<SolutionAction> retestActions(ConnectivityKind medium) {
+    switch (medium) {
+      case ConnectivityKind.wifi:
+        return const [
+          SolutionAction(
+            type: SolutionActionType.retry,
+            label: 'Test again over Wi-Fi',
+          ),
+          SolutionAction(
+            type: SolutionActionType.retestOverMobile,
+            label: 'Test over mobile data',
+          ),
+        ];
+      case ConnectivityKind.mobile:
+        return const [
+          SolutionAction(
+            type: SolutionActionType.retry,
+            label: 'Test again over mobile data',
+          ),
+          SolutionAction(
+            type: SolutionActionType.retestOverWifi,
+            label: 'Test over Wi-Fi',
+          ),
+        ];
+      case ConnectivityKind.ethernet:
+      case ConnectivityKind.vpn:
+      case ConnectivityKind.other:
+      case ConnectivityKind.none:
+        return const [
+          SolutionAction(type: SolutionActionType.retry, label: 'Test again'),
+        ];
+    }
+  }
+
+  /// A local radio hop that is slow or lossy: the Wi-Fi, not the provider.
+  static bool _gatewayWeak(LinkQuality quality) =>
+      quality.gateway.ok &&
+      ((quality.gateway.avgMs ?? 0) > 20 ||
+          (quality.gateway.lossPercent ?? 0) > 1);
+
+  /// Response time inflating while the line is busy: something is filling it.
+  static bool _saturated(LinkQuality quality) =>
+      (quality.bufferbloatRatio ?? 1) > 3;
+
+  /// The most demanding activities that do fit, so "good for …" mentions what
+  /// is impressive rather than what is trivial.
+  static List<UseCaseOutcome> _mostDemanding(
+    List<UseCaseOutcome> outcomes,
+    int count,
+  ) {
+    final ranked = outcomes.toList()
+      ..sort(
+        (a, b) => b.requirement.downMbps.compareTo(a.requirement.downMbps),
+      );
+    return ranked.take(count).toList();
+  }
+
+  static String _names(List<UseCaseOutcome> outcomes) {
+    final names = outcomes.map((o) => o.name).toList();
+    if (names.isEmpty) return 'anything demanding';
+    if (names.length == 1) return names.first;
+    return '${names.sublist(0, names.length - 1).join(', ')} '
+        'and ${names.last}';
+  }
+
+  static String _rate(double value) =>
+      value >= 10 ? value.round().toString() : value.toStringAsFixed(1);
 }

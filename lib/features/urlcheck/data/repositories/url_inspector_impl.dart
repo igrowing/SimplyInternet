@@ -32,6 +32,7 @@ class UrlInspectorImpl implements UrlInspector {
         statusCode: response.statusCode,
         finalUrl: response.request?.url.toString() ?? url.toString(),
         elapsedMs: sw.elapsedMilliseconds,
+        retryAfterSeconds: _retryAfter(response.headers['retry-after']),
       );
     } on TimeoutException {
       return const HttpFetchResult.failed('timed out');
@@ -43,6 +44,25 @@ class UrlInspectorImpl implements UrlInspector {
       return const HttpFetchResult.failed('TLS handshake failed');
     } finally {
       client.close();
+    }
+  }
+
+  /// `Retry-After` comes either as a number of seconds or as an HTTP date;
+  /// both are turned into seconds from now, and anything unparsable yields
+  /// null rather than a guessed wait.
+  static int? _retryAfter(String? header) {
+    final value = header?.trim();
+    if (value == null || value.isEmpty) return null;
+    final seconds = int.tryParse(value);
+    if (seconds != null) return seconds < 0 ? null : seconds;
+    try {
+      final date = HttpDate.parse(value);
+      final wait = date.difference(DateTime.now()).inSeconds;
+      return wait <= 0 ? null : wait;
+    } on HttpException {
+      // A malformed header is no information: say so instead of inventing a
+      // wait the server never asked for.
+      return null;
     }
   }
 
@@ -306,6 +326,7 @@ class UrlInspectorImpl implements UrlInspector {
       if (total == 0) return const OutageReport.unavailable();
       final alt = body['alternateHost'];
       return OutageReport(
+        probes: _outageProbes(body['regions']),
         available: true,
         isUp: body['isUp'] == true,
         verdict: body['verdict'] is String ? body['verdict'] as String : '',
@@ -331,6 +352,30 @@ class UrlInspectorImpl implements UrlInspector {
     }
   }
 
+  /// Per-region results from the outage service, so the report can list which
+  /// continents were tested and what each one saw.
+  List<RegionProbe> _outageProbes(Object? regions) {
+    if (regions is! List) return const [];
+    final out = <RegionProbe>[];
+    for (final entry in regions) {
+      if (entry is! Map) continue;
+      final region = entry['region'];
+      final label = region is Map && region['label'] is String
+          ? region['label'] as String
+          : null;
+      if (label == null) continue;
+      final status = entry['status'];
+      out.add(
+        RegionProbe(
+          location: label,
+          reachable: entry['isUp'] == true,
+          statusCode: status is int ? status : null,
+        ),
+      );
+    }
+    return out;
+  }
+
   int _asInt(Object? value) {
     if (value is int) return value;
     if (value is num) return value.toInt();
@@ -344,16 +389,18 @@ class UrlInspectorImpl implements UrlInspector {
     var total = 0;
     var reachable = 0;
     final blocked = <String>{};
+    final probes = <RegionProbe>[];
     data.forEach((node, value) {
       if (value is! List || value.isEmpty) return;
       final first = value[0];
       if (first is! List || first.isEmpty) return;
       total++;
       final ok = first[0] == 1;
+      final country = countryByNode[node];
+      probes.add(RegionProbe(location: country ?? node, reachable: ok));
       if (ok) {
         reachable++;
       } else {
-        final country = countryByNode[node];
         if (country != null) blocked.add(country);
       }
     });
@@ -363,6 +410,7 @@ class UrlInspectorImpl implements UrlInspector {
       total: total,
       reachable: reachable,
       blockedCountries: blocked.toList()..sort(),
+      probes: probes,
     );
   }
 }

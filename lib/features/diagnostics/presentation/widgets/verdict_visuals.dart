@@ -22,18 +22,37 @@ class VerdictVisuals {
         return Icons.dns;
       case VerdictCategory.portBlocked:
         return Icons.block;
-      case VerdictCategory.trafficShaping:
-        return Icons.speed;
       case VerdictCategory.ispPathProblem:
         return Icons.alt_route;
-      case VerdictCategory.allClear:
+      case VerdictCategory.connectionGood:
         return Icons.check_circle;
+      case VerdictCategory.connectionMostlyGood:
+        return Icons.thumb_up_alt_outlined;
+      case VerdictCategory.connectionDegraded:
+        return Icons.speed;
     }
   }
 
+  /// Dark green when everything fits, light green when nearly everything does,
+  /// amber when the link works but most activities do not fit, red when the
+  /// connection itself is broken.
   static Color colorFor(VerdictCategory category) {
-    if (category == VerdictCategory.allClear) return Colors.green;
-    if (category == VerdictCategory.trafficShaping) return Colors.orange;
-    return Colors.red.shade700;
+    switch (category) {
+      case VerdictCategory.connectionGood:
+        return Colors.green.shade800;
+      case VerdictCategory.connectionMostlyGood:
+        return Colors.green.shade400;
+      case VerdictCategory.connectionDegraded:
+        return Colors.amber.shade800;
+      case VerdictCategory.notConnected:
+      case VerdictCategory.routerNotResponding:
+      case VerdictCategory.captivePortal:
+      case VerdictCategory.noInternetIsp:
+      case VerdictCategory.mobileNoData:
+      case VerdictCategory.dnsProblem:
+      case VerdictCategory.portBlocked:
+      case VerdictCategory.ispPathProblem:
+        return Colors.red.shade700;
+    }
   }
 }
