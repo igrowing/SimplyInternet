@@ -23,28 +23,58 @@ MockClient _server({
   });
 }
 
+/// Round-trip times that arrive instantly, so the tests measure behaviour
+/// rather than the clock.
+///
+/// The download probe pings while the line is busy and waits for the answer, so
+/// replacing only the HTTP client leaves the tests shelling out to `ping`
+/// against a public address. Where ICMP is dropped — CI runners typically drop
+/// it — one sample set falls back to ten sequential probes and costs tens of
+/// seconds of timeouts, which is what pushed these tests past the 30 s limit
+/// while they passed on a developer machine.
+const double kFakeRttMs = 12;
+
+Future<List<double>> _instantPing(
+  String host, {
+  required int count,
+  required Duration interval,
+}) async => List<double>.filled(count, kFakeRttMs);
+
+/// A probe wired to the mock server and the instant pinger — no real network.
+NetworkProbeImpl _probe({
+  required List<int> payload,
+  List<String>? hits,
+  int downloadStatus = 200,
+  PingRtts? pingRtts,
+}) {
+  return NetworkProbeImpl(
+    clientFactory: () => _server(
+      payload: payload,
+      hits: hits ?? <String>[],
+      downloadStatus: downloadStatus,
+    ),
+    pingRtts: pingRtts ?? _instantPing,
+  );
+}
+
 void main() {
   group('measureThroughput', () {
     test('reports the rate of the bytes that actually arrived', () async {
-      final hits = <String>[];
-      final probe = NetworkProbeImpl(
-        clientFactory: () =>
-            _server(payload: Uint8List(2 * 1000 * 1000), hits: hits),
-      );
+      final probe = _probe(payload: Uint8List(2 * 1000 * 1000));
       final result = await probe.measureThroughput();
       expect(result.ok, isTrue);
       expect(result.downloadMbps, greaterThan(0));
       expect(result.bytesReceived, greaterThanOrEqualTo(2 * 1000 * 1000));
       expect(result.uploadMbps, isNotNull);
       expect(result.bytesSent, greaterThanOrEqualTo(kUploadChunkBytes));
+      // Sampled while the transfer was running, so it is the busy figure the
+      // bufferbloat comparison is built on.
+      expect(result.loadedRttMs, kFakeRttMs);
     });
 
     test('downloads before uploading, never both at once', () async {
       final hits = <String>[];
-      final probe = NetworkProbeImpl(
-        clientFactory: () =>
-            _server(payload: Uint8List(2 * 1000 * 1000), hits: hits),
-      );
+      final probe = _probe(payload: Uint8List(2 * 1000 * 1000), hits: hits);
       await probe.measureThroughput();
       final firstUpload = hits.indexWhere((h) => h.contains('__up'));
       final lastDownload = hits.lastIndexWhere((h) => h.contains('__down'));
@@ -56,9 +86,10 @@ void main() {
       // Counting that body as the sample yielded a bogus 0.0 Mbps and a
       // "your Wi-Fi is too weak" verdict on a perfectly fast connection.
       final hits = <String>[];
-      final probe = NetworkProbeImpl(
-        clientFactory: () =>
-            _server(payload: utf8.encode('0'), downloadStatus: 403, hits: hits),
+      final probe = _probe(
+        payload: utf8.encode('0'),
+        downloadStatus: 403,
+        hits: hits,
       );
       final result = await probe.measureThroughput();
       expect(result.ok, isFalse);
@@ -67,21 +98,13 @@ void main() {
     });
 
     test('asks only for a size the service serves', () async {
-      final hits = <String>[];
-      final probe = NetworkProbeImpl(
-        clientFactory: () =>
-            _server(payload: Uint8List(1000 * 1000), hits: hits),
-      );
+      final probe = _probe(payload: Uint8List(1000 * 1000));
       await probe.measureThroughput();
       expect(kDownloadChunkBytes, lessThanOrEqualTo(25 * 1000 * 1000));
     });
 
     test('accounts for the bytes each test moved', () async {
-      final hits = <String>[];
-      final probe = NetworkProbeImpl(
-        clientFactory: () =>
-            _server(payload: Uint8List(1000 * 1000), hits: hits),
-      );
+      final probe = _probe(payload: Uint8List(1000 * 1000));
       await probe.measureThroughput();
       final usage = probe.dataUsage();
       expect(
@@ -109,14 +132,33 @@ void main() {
       );
     });
 
-    test('records the bytes of a transfer that was cut short', () async {
-      final probe = NetworkProbeImpl(
-        clientFactory: () => _server(
-          payload: Uint8List(1000),
-          hits: <String>[],
-          downloadStatus: 500,
-        ),
+    test('does not sample the busy line when nothing was downloaded', () async {
+      // The sample used to start before the first request and was abandoned
+      // when the service refused it. It went on pinging for as long as its
+      // probes took to time out and then recorded itself — into whichever run
+      // was current by then, so a report that downloaded nothing could show a
+      // busy-line measurement taken during the previous test.
+      var pings = 0;
+      final probe = _probe(
+        payload: utf8.encode('0'),
+        downloadStatus: 403,
+        pingRtts: (host, {required count, required interval}) async {
+          pings++;
+          return List<double>.filled(count, kFakeRttMs);
+        },
       );
+      final result = await probe.measureThroughput();
+      expect(result.ok, isFalse);
+      expect(result.loadedRttMs, isNull);
+      expect(pings, 0);
+      expect(
+        probe.dataUsage().records.map((r) => r.test),
+        isNot(contains('Response time while the line is busy')),
+      );
+    });
+
+    test('records the bytes of a transfer that was cut short', () async {
+      final probe = _probe(payload: Uint8List(1000), downloadStatus: 500);
       final result = await probe.measureThroughput();
       expect(result.ok, isFalse);
       // A refusal still cost a request: it belongs in the transparency list.
@@ -127,10 +169,7 @@ void main() {
     });
 
     test('resetUsage empties the recorded tests', () async {
-      final probe = NetworkProbeImpl(
-        clientFactory: () =>
-            _server(payload: Uint8List(1000 * 1000), hits: <String>[]),
-      );
+      final probe = _probe(payload: Uint8List(1000 * 1000));
       await probe.measureThroughput();
       expect(probe.dataUsage().records, isNotEmpty);
       probe.resetUsage();
