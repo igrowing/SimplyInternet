@@ -125,5 +125,18 @@ void main() {
         contains('Download speed'),
       );
     });
+
+    test('resetUsage empties the recorded tests', () async {
+      final probe = NetworkProbeImpl(
+        clientFactory: () =>
+            _server(payload: Uint8List(1000 * 1000), hits: <String>[]),
+      );
+      await probe.measureThroughput();
+      expect(probe.dataUsage().records, isNotEmpty);
+      probe.resetUsage();
+      expect(probe.dataUsage().records, isEmpty);
+      expect(probe.dataUsage().bytesReceived, 0);
+      expect(probe.dataUsage().bytesSent, 0);
+    });
   });
 }

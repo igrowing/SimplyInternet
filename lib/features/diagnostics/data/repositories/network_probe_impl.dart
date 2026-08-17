@@ -40,6 +40,9 @@ class NetworkProbeImpl implements NetworkProbe {
   @override
   DataUsage dataUsage() => DataUsage(List.unmodifiable(_records));
 
+  @override
+  void resetUsage() => _records.clear();
+
   void _record(
     String test,
     String target, {

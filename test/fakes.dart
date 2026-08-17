@@ -121,8 +121,29 @@ class FakeNetworkProbe implements NetworkProbe {
     return quality;
   }
 
+  /// Records left over from an earlier run, as the real probe holds them: it
+  /// is a singleton, so anything it measured before is still in its list until
+  /// something clears it. A probe that is never reset keeps serving these
+  /// alongside the current run, which is exactly the contradiction — "the
+  /// router is not responding" beside a 20 MB speed test — that [resetUsage]
+  /// exists to prevent.
+  DataUsage staleUsage = const DataUsage.empty();
+
+  bool _wasReset = false;
+
+  /// How many times the run asked for a clean slate.
+  int resetUsageCount = 0;
+
   @override
-  DataUsage dataUsage() => usage;
+  DataUsage dataUsage() => _wasReset
+      ? usage
+      : DataUsage([...staleUsage.records, ...usage.records]);
+
+  @override
+  void resetUsage() {
+    resetUsageCount++;
+    _wasReset = true;
+  }
 
   @override
   Future<IspPathResult> tracePath(String host) async {

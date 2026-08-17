@@ -53,4 +53,12 @@ abstract class NetworkProbe {
   /// The checks performed so far and the payload they moved, for the
   /// transparency section of the report.
   DataUsage dataUsage();
+
+  /// Drop every recorded check so the next diagnosis starts from nothing.
+  ///
+  /// The probe outlives a single run, so without this the technical details
+  /// would carry the previous run's tests into the current report — a run that
+  /// stopped at "the router is not responding" would still list a 20 MB speed
+  /// test from the run before it, which flatly contradicts its own verdict.
+  void resetUsage();
 }

@@ -51,6 +51,12 @@ class RunDiagnosis {
   Future<DiagnosisReport> call({
     void Function(DiagnosisPhase phase)? onPhase,
   }) async {
+    // The probe is a singleton that outlives one run, so the checks it recorded
+    // last time are dropped before anything new is measured. Every report then
+    // describes only its own run: an early exit at "the router is not
+    // responding" can no longer list a speed test that never ran this time.
+    _probe.resetUsage();
+
     // The log uses a small Markdown subset (`## heading`, `- item`, `  - item`
     // for a detail belonging to the line above) that the Technical details
     // view renders and copies verbatim.

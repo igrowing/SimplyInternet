@@ -345,6 +345,48 @@ void main() {
       expect(lists.any((l) => l.contains(': no —')), isFalse);
     });
 
+    group('starts each run from a clean technical log', () {
+      test('drops the previous run tests before measuring anything', () async {
+        final probe = FakeNetworkProbe()
+          ..staleUsage = const DataUsage([
+            ProbeRecord(
+              test: 'Download speed',
+              target: 'speed.cloudflare.com',
+              bytesReceived: 20000000,
+            ),
+          ]);
+        final report = await RunDiagnosis(probe).call();
+        expect(probe.resetUsageCount, 1);
+        expect(report.log.join('\n'), isNot(contains('Download speed')));
+      });
+
+      test('an early exit cannot inherit an earlier speed test', () async {
+        // The reported contradiction: the router never answered, so nothing
+        // was downloaded, yet the details listed 20 MB from the run before.
+        final probe = FakeNetworkProbe(gatewayReachable: false)
+          ..staleUsage = const DataUsage([
+            ProbeRecord(
+              test: 'Download speed',
+              target: 'speed.cloudflare.com',
+              bytesReceived: 20000000,
+            ),
+          ]);
+        final report = await RunDiagnosis(probe).call();
+        expect(report.verdict.category, VerdictCategory.routerNotResponding);
+        final log = report.log.join('\n');
+        expect(log, isNot(contains('Download speed')));
+        expect(log, isNot(contains('20.0 MB')));
+      });
+
+      test('resets again on every repeat run', () async {
+        final probe = FakeNetworkProbe();
+        final diagnosis = RunDiagnosis(probe);
+        await diagnosis.call();
+        await diagnosis.call();
+        expect(probe.resetUsageCount, 2);
+      });
+    });
+
     test('emits ordered phase callbacks', () async {
       final phases = <DiagnosisPhase>[];
       await RunDiagnosis(FakeNetworkProbe()).call(onPhase: phases.add);
