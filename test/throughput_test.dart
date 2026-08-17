@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -39,6 +40,14 @@ Future<List<double>> _instantPing(
   required int count,
   required Duration interval,
 }) async => List<double>.filled(count, kFakeRttMs);
+
+/// A body that starts arriving and then dies, the way a connection dropped
+/// part way through a transfer does. The status line was already 200, so the
+/// probe has committed to measuring before anything goes wrong.
+Stream<List<int>> _dyingBody() async* {
+  yield Uint8List(1000);
+  throw http.ClientException('connection closed mid-stream');
+}
 
 /// A probe wired to the mock server and the instant pinger — no real network.
 NetworkProbeImpl _probe({
@@ -154,6 +163,54 @@ void main() {
       expect(
         probe.dataUsage().records.map((r) => r.test),
         isNot(contains('Response time while the line is busy')),
+      );
+    });
+
+    test('waits for a sample under way when the transfer dies', () async {
+      // The refusal path never starts a sample, but a transfer that answered
+      // 200 and then broke has one in flight. Abandoning it left it pinging on
+      // its own and recording itself whenever its probes finally timed out —
+      // by which time the next diagnosis could already own the list.
+      //
+      // The ping is held open here, so "did the probe wait for it" is decided
+      // by this test rather than by how long a real ping happens to take.
+      final release = Completer<void>();
+      var pingFinished = false;
+      final probe = NetworkProbeImpl(
+        clientFactory: () => MockClient.streaming(
+          (request, body) async => http.StreamedResponse(_dyingBody(), 200),
+        ),
+        pingRtts: (host, {required count, required interval}) async {
+          await release.future;
+          pingFinished = true;
+          return List<double>.filled(count, kFakeRttMs);
+        },
+      );
+
+      final pending = probe.measureThroughput();
+      var settled = false;
+      unawaited(pending.whenComplete(() => settled = true));
+      await pumpEventQueue();
+
+      // The transfer has failed by now and everything that can proceed has.
+      expect(pingFinished, isFalse);
+      expect(
+        settled,
+        isFalse,
+        reason: 'the probe returned while its latency sample was still running',
+      );
+
+      release.complete();
+      final result = await pending;
+
+      expect(result.ok, isFalse);
+      expect(pingFinished, isTrue);
+      // The sample belongs to the run that started it, so its record is in
+      // place by the time the probe hands back — it can never be appended to
+      // a later run's list.
+      expect(
+        probe.dataUsage().records.map((r) => r.test),
+        contains('Response time while the line is busy'),
       );
     });
 
