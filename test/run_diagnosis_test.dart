@@ -217,7 +217,9 @@ void main() {
       );
       expect(
         log,
-        contains('Total data used by this diagnosis: sent 3.0 MB, received 6.0 MB'),
+        contains(
+          'Total data used by this diagnosis: sent 3.0 MB, received 6.0 MB',
+        ),
       );
       expect(log, contains('Upload: 20.0 Mbps'));
       expect(log, contains('Internet response time: 16 ms avg'));
@@ -266,6 +268,81 @@ void main() {
       // figure is reported, not turned into an accusation.
       expect(report.verdict.category, VerdictCategory.connectionGood);
       expect(report.solution, isNull);
+    });
+
+    group('fails fast on a hard failure', () {
+      test('skips every slow measurement behind a captive portal', () async {
+        final probe = FakeNetworkProbe(
+          captiveResult: const CaptivePortalResult.portal('http://login.local'),
+        );
+        final report = await RunDiagnosis(probe).call();
+        expect(report.verdict.category, VerdictCategory.captivePortal);
+        expect(probe.calls, isEmpty);
+        expect(probe.tracePathCount, 0);
+        expect(probe.portsCount, 0);
+        expect(probe.popularSitesCount, 0);
+      });
+
+      test('skips the speed test when the Internet does not answer', () async {
+        final probe = FakeNetworkProbe(
+          captiveResult: const CaptivePortalResult.noInternet(),
+          rawReachable: false,
+        );
+        final report = await RunDiagnosis(probe).call();
+        expect(report.verdict.category, VerdictCategory.noInternetIsp);
+        expect(probe.calls, isEmpty);
+        expect(probe.portsCount, 0);
+        // Nothing answers at IP level either, so there is no route worth
+        // tracing: the trace is the slowest probe of all.
+        expect(probe.tracePathCount, 0);
+      });
+
+      test('traces the route only where it decides the verdict', () async {
+        final probe = FakeNetworkProbe(
+          captiveResult: const CaptivePortalResult.noInternet(),
+          path: const IspPathResult(reachedDestination: false),
+        );
+        final report = await RunDiagnosis(probe).call();
+        expect(report.verdict.category, VerdictCategory.ispPathProblem);
+        expect(probe.tracePathCount, 1);
+        expect(probe.calls, isEmpty);
+      });
+
+      test('still lists the checks it performed', () async {
+        final probe = FakeNetworkProbe(
+          gatewayReachable: false,
+          usage: const DataUsage([
+            ProbeRecord(
+              test: 'Router latency',
+              target: '192.168.1.1',
+              bytesSent: 640,
+              bytesReceived: 64,
+            ),
+          ]),
+        );
+        final report = await RunDiagnosis(probe).call();
+        expect(report.log, contains('## Tests performed (1)'));
+        expect(
+          report.log.join('\n'),
+          contains('Total data used by this diagnosis'),
+        );
+      });
+    });
+
+    test('lists what the connection is and is not good for', () async {
+      final probe = FakeNetworkProbe(
+        speed: const SpeedResult(downloadMbps: 3, ok: true, uploadMbps: 0.4),
+      );
+      final report = await RunDiagnosis(probe).call();
+      expect(report.log, contains('## Good for'));
+      expect(report.log, contains('## Not good enough for'));
+      // A name in either list already says whether it fits, so no line
+      // repeats the answer as a yes/no.
+      final lists = report.log
+          .skipWhile((l) => l != '## Good for')
+          .where((l) => l.startsWith('- '));
+      expect(lists.any((l) => l.endsWith(': yes')), isFalse);
+      expect(lists.any((l) => l.contains(': no —')), isFalse);
     });
 
     test('emits ordered phase callbacks', () async {

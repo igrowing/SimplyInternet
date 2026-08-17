@@ -351,10 +351,7 @@ void main() {
           tls: const TlsInfo(checked: true, issue: 'certificate expired'),
         ),
       ).call('https://badcert.example');
-      expect(
-        findingWithTitle(report, 'Security certificate problem'),
-        isNull,
-      );
+      expect(findingWithTitle(report, 'Security certificate problem'), isNull);
     });
 
     test('rejects an empty or invalid address', () async {

@@ -51,6 +51,12 @@ const List<({String host, int port, String service})> kPortProbeTargets = [
 /// Destination used for the ISP path (traceroute) check.
 const String kPathProbeHost = '1.1.1.1';
 
+/// Cap on the route trace. Every hop that never answers costs its own probe
+/// timeout, so an unreachable destination is the slowest check in the whole
+/// diagnosis; the verdict only needs to know whether the destination was ever
+/// reached, and 20 s is long enough to establish that.
+const Duration kTraceTimeout = Duration(seconds: 20);
+
 /// Public host pinged to sample Internet latency, jitter and packet loss.
 const String kLatencyProbeHost = '1.1.1.1';
 

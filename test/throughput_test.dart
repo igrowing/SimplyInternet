@@ -90,6 +90,40 @@ void main() {
       );
       expect(usage.bytesReceived, greaterThan(0));
       expect(usage.bytesSent, greaterThan(0));
+      // The speed figures and the aggregate must be drawn from the same
+      // records, or the two sections of the report contradict each other.
+      final result = await probe.measureThroughput();
+      final download = probe.dataUsage().records.lastWhere(
+        (r) => r.test == 'Download speed',
+      );
+      final upload = probe.dataUsage().records.lastWhere(
+        (r) => r.test == 'Upload speed',
+      );
+      expect(download.bytesReceived, result.bytesReceived);
+      expect(upload.bytesSent, result.bytesSent);
+      // The pings taken while the line is busy cost packets too, so they are
+      // listed like every other test instead of vanishing from the total.
+      expect(
+        probe.dataUsage().records.map((r) => r.test),
+        contains('Response time while the line is busy'),
+      );
+    });
+
+    test('records the bytes of a transfer that was cut short', () async {
+      final probe = NetworkProbeImpl(
+        clientFactory: () => _server(
+          payload: Uint8List(1000),
+          hits: <String>[],
+          downloadStatus: 500,
+        ),
+      );
+      final result = await probe.measureThroughput();
+      expect(result.ok, isFalse);
+      // A refusal still cost a request: it belongs in the transparency list.
+      expect(
+        probe.dataUsage().records.map((r) => r.test),
+        contains('Download speed'),
+      );
     });
   });
 }

@@ -180,8 +180,8 @@ void main() {
         ),
       ).call('example.com');
       expect(report.log, contains('## From other countries (check-host.net)'));
-      expect(report.log, contains('- US: reached'));
-      expect(report.log, contains('- DE: failed'));
+      expect(report.log, contains('  - US: reached ✅'));
+      expect(report.log, contains('  - DE: failed ❌'));
       expect(
         report.log,
         contains(
@@ -189,8 +189,8 @@ void main() {
           '(websitedown.org)',
         ),
       );
-      expect(report.log, contains('- Europe (CDG): reached (200)'));
-      expect(report.log, contains('- Asia East (Tokyo): failed'));
+      expect(report.log, contains('  - Europe (CDG): reached ✅ (200)'));
+      expect(report.log, contains('  - Asia East (Tokyo): failed ❌'));
     });
 
     test('uses headings and bullets the copy button can reproduce', () async {
@@ -198,10 +198,105 @@ void main() {
       expect(report.log.first, startsWith('## '));
       final content = report.log.where((l) => l.trim().isNotEmpty);
       expect(
-        content.every((l) => l.startsWith('## ') || l.startsWith('- ')),
+        content.every(
+          (l) =>
+              l.startsWith('## ') || l.startsWith('- ') || l.startsWith('  - '),
+        ),
         isTrue,
         reason: report.log.join('\n'),
       );
+    });
+  });
+
+  group('cause and instruction are separate', () {
+    /// Words that only ever appear in an instruction. A finding that contains
+    /// one has an action buried in the explanation again.
+    const imperatives = [
+      'Try ',
+      'Check the address',
+      'Open it in',
+      'Wait ',
+      'Sign in',
+      'Do not enter',
+      'try again',
+    ];
+
+    void expectSeparated(UrlCheckReport report) {
+      for (final finding in report.findings) {
+        for (final word in imperatives) {
+          expect(
+            finding.detail,
+            isNot(contains(word)),
+            reason: '"$word" belongs in the advice: ${finding.detail}',
+          );
+        }
+      }
+    }
+
+    test('a 404 explains the cause and lists the actions apart', () async {
+      final report = await CheckUrl(
+        FakeUrlInspector(
+          fetchResult: const HttpFetchResult(reached: true, statusCode: 404),
+        ),
+      ).call('example.com/missing');
+      expect(report.findings.single.detail, contains('does not exist'));
+      expect(report.advice, [
+        'Check the address for a typo.',
+        'Open the site home page and navigate from there.',
+      ]);
+      expectSeparated(report);
+    });
+
+    test('a refused request advises mobile data, then a VPN', () async {
+      final report = await CheckUrl(
+        FakeUrlInspector(
+          fetchResult: const HttpFetchResult(reached: true, statusCode: 403),
+        ),
+      ).call('iherb.com');
+      expect(report.advice.first, contains('mobile data'));
+      expect(report.advice.last, contains('VPN'));
+      expectSeparated(report);
+    });
+
+    test('a rate limit quotes the wait the server asked for', () async {
+      final report = await CheckUrl(
+        FakeUrlInspector(
+          fetchResult: const HttpFetchResult(
+            reached: true,
+            statusCode: 429,
+            retryAfterSeconds: 120,
+          ),
+        ),
+      ).call('example.com');
+      expect(report.advice.first, contains('2 minutes'));
+      expectSeparated(report);
+    });
+
+    test('without Retry-After it does not invent a precise wait', () async {
+      final report = await CheckUrl(
+        FakeUrlInspector(
+          fetchResult: const HttpFetchResult(reached: true, statusCode: 429),
+        ),
+      ).call('example.com');
+      expect(report.advice.first, 'Wait a minute and try again.');
+    });
+
+    test('a working site has nothing to instruct', () async {
+      final report = await CheckUrl(FakeUrlInspector()).call('example.com');
+      expect(report.advice, isEmpty);
+      expectSeparated(report);
+    });
+
+    test('a dead domain keeps the spelling check out of the reason', () async {
+      final report = await CheckUrl(
+        FakeUrlInspector(
+          dns: false,
+          fetchResult: const HttpFetchResult.failed('no host'),
+          domain: const DomainInfo(checked: true),
+        ),
+      ).call('kirgudubutbiya.net');
+      expect(report.advice.first, 'Check the spelling of the address.');
+      expectSeparated(report);
     });
   });
 }

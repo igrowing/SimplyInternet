@@ -32,6 +32,7 @@ class UrlInspectorImpl implements UrlInspector {
         statusCode: response.statusCode,
         finalUrl: response.request?.url.toString() ?? url.toString(),
         elapsedMs: sw.elapsedMilliseconds,
+        retryAfterSeconds: _retryAfter(response.headers['retry-after']),
       );
     } on TimeoutException {
       return const HttpFetchResult.failed('timed out');
@@ -43,6 +44,25 @@ class UrlInspectorImpl implements UrlInspector {
       return const HttpFetchResult.failed('TLS handshake failed');
     } finally {
       client.close();
+    }
+  }
+
+  /// `Retry-After` comes either as a number of seconds or as an HTTP date;
+  /// both are turned into seconds from now, and anything unparsable yields
+  /// null rather than a guessed wait.
+  static int? _retryAfter(String? header) {
+    final value = header?.trim();
+    if (value == null || value.isEmpty) return null;
+    final seconds = int.tryParse(value);
+    if (seconds != null) return seconds < 0 ? null : seconds;
+    try {
+      final date = HttpDate.parse(value);
+      final wait = date.difference(DateTime.now()).inSeconds;
+      return wait <= 0 ? null : wait;
+    } on HttpException {
+      // A malformed header is no information: say so instead of inventing a
+      // wait the server never asked for.
+      return null;
     }
   }
 

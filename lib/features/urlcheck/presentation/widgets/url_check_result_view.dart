@@ -4,8 +4,9 @@ import 'package:simply_internet/features/urlcheck/domain/entities/url_check_repo
 import 'package:simply_internet/features/urlcheck/presentation/controllers/url_check_controller.dart';
 
 /// Renders a finished [UrlCheckReport]: a headline verdict, one card per
-/// finding (colour-coded by severity), and actions to open the site or check
-/// another one.
+/// finding (colour-coded by severity), then a single "What to do" card holding
+/// every instruction and the buttons that carry them out — the same shape the
+/// diagnosis result uses, so both features read the same way.
 class UrlCheckResultView extends StatelessWidget {
   const UrlCheckResultView({
     required this.report,
@@ -51,16 +52,41 @@ class UrlCheckResultView extends StatelessWidget {
             showTitle: finding.title != report.headline,
           ),
         const SizedBox(height: 8),
-        FilledButton.tonalIcon(
-          onPressed: () => _open(context),
-          icon: const Icon(Icons.open_in_browser),
-          label: const Text('Open in browser'),
-        ),
-        const SizedBox(height: 8),
-        FilledButton.tonalIcon(
-          onPressed: () => _retestOverMobile(context),
-          icon: const Icon(Icons.signal_cellular_alt),
-          label: const Text('Test over mobile data'),
+        // One "What to do" block, exactly as the diagnosis result shows it:
+        // the instructions and the buttons that carry them out sit together,
+        // away from the explanation of what went wrong.
+        Card(
+          color: theme.colorScheme.primaryContainer,
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'What to do',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                for (final line in report.advice) ...[
+                  const SizedBox(height: 6),
+                  Text('• $line', style: theme.textTheme.bodyMedium),
+                ],
+                const SizedBox(height: 12),
+                FilledButton.tonalIcon(
+                  onPressed: () => _open(context),
+                  icon: const Icon(Icons.open_in_browser),
+                  label: const Text('Open in browser'),
+                ),
+                const SizedBox(height: 8),
+                FilledButton.tonalIcon(
+                  onPressed: () => _retestOverMobile(context),
+                  icon: const Icon(Icons.signal_cellular_alt),
+                  label: const Text('Test over mobile data'),
+                ),
+              ],
+            ),
+          ),
         ),
         const SizedBox(height: 8),
         OutlinedButton.icon(

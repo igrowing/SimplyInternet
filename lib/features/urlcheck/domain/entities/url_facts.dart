@@ -10,6 +10,7 @@ class HttpFetchResult extends Equatable {
     this.finalUrl,
     this.elapsedMs,
     this.error,
+    this.retryAfterSeconds,
   });
 
   /// A dead result used when the request could not even leave the device.
@@ -18,7 +19,8 @@ class HttpFetchResult extends Equatable {
       statusCode = null,
       finalUrl = null,
       elapsedMs = null,
-      error = reason;
+      error = reason,
+      retryAfterSeconds = null;
 
   /// Whether any HTTP response at all was received.
   final bool reached;
@@ -35,11 +37,23 @@ class HttpFetchResult extends Equatable {
   /// Transport-level error text when the request never got a response.
   final String? error;
 
+  /// How long the server asked us to wait, from its `Retry-After` header.
+  /// Only a server that is rate-limiting or unavailable sends one, and the
+  /// advice quotes it instead of guessing "a minute".
+  final int? retryAfterSeconds;
+
   bool get isSuccess =>
       reached && statusCode != null && statusCode! >= 200 && statusCode! < 300;
 
   @override
-  List<Object?> get props => [reached, statusCode, finalUrl, elapsedMs, error];
+  List<Object?> get props => [
+    reached,
+    statusCode,
+    finalUrl,
+    elapsedMs,
+    error,
+    retryAfterSeconds,
+  ];
 }
 
 /// Domain registration facts, sourced from RDAP.

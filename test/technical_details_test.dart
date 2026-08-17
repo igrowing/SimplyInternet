@@ -76,10 +76,16 @@ void main() {
       expect(report.log, contains('## Good for'));
       final content = report.log.where((l) => l.trim().isNotEmpty);
       expect(
-        content.every((l) => l.startsWith('## ') || l.startsWith('- ')),
+        content.every(
+          (l) =>
+              l.startsWith('## ') || l.startsWith('- ') || l.startsWith('  - '),
+        ),
         isTrue,
         reason: report.log.join('\n'),
       );
+      // The captive-portal answer belongs under the Internet line it
+      // qualifies, not beside it as a separate top-level fact.
+      expect(report.log, contains(startsWith('  - Captive sign-in page:')));
     });
   });
 }

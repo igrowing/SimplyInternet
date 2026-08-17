@@ -141,16 +141,22 @@ class NetworkProbeImpl implements NetworkProbe {
 
   @override
   Future<CaptivePortalResult> checkCaptivePortal() async {
+    // Probed together rather than one after the other: when the Internet is
+    // dead every endpoint runs into its own timeout, and in sequence the user
+    // waits for the sum of them before hearing anything.
+    final outcomes = await Future.wait(
+      kCheck204Endpoints.map((e) => _probe204(e.url)),
+    );
     var sawPortal = false;
     String? portalUrl;
-    for (final endpoint in kCheck204Endpoints) {
-      final outcome = await _probe204(endpoint.url);
+    for (var i = 0; i < outcomes.length; i++) {
+      final outcome = outcomes[i];
       switch (outcome.kind) {
         case _Http204Kind.clear:
           return const CaptivePortalResult.clear();
         case _Http204Kind.portal:
           sawPortal = true;
-          portalUrl ??= outcome.portalUrl ?? endpoint.url;
+          portalUrl ??= outcome.portalUrl ?? kCheck204Endpoints[i].url;
         case _Http204Kind.unreachable:
           break;
       }
@@ -286,13 +292,14 @@ class NetworkProbeImpl implements NetworkProbe {
   Future<SpeedResult> _measureDownload() async {
     final uri = Uri.parse('$kDownloadUrl$kDownloadChunkBytes');
     final client = _clientFactory();
-    final loadedRtts = NetworkTools.pingRtts(
+    // Sampled through the same helper as the idle probes so the packets it
+    // costs land in the transparency list like every other test.
+    final loadedLatency = _sampleLatency(
+      'Response time while the line is busy',
       kLatencyProbeHost,
-      count: kLatencySamples,
-      interval: kLatencyInterval,
     );
+    var received = 0;
     try {
-      var received = 0;
       final sw = Stopwatch()..start();
       // Requests of a size the service actually serves, repeated until the
       // window closes: a fast link needs several, a slow one is cut off part
@@ -306,7 +313,6 @@ class NetworkProbeImpl implements NetworkProbe {
         // A refusal must not be mistaken for a very slow link: its short error
         // body would otherwise be reported as a fraction of a Mbps.
         if (streamed.statusCode != 200) {
-          _record('Download speed', uri.host);
           return const SpeedResult.unavailable();
         }
         await for (final chunk in streamed.stream.timeout(
@@ -318,16 +324,13 @@ class NetworkProbeImpl implements NetworkProbe {
       }
       sw.stop();
       final seconds = sw.elapsedMilliseconds / 1000.0;
-      final underLoad = await loadedRtts;
-      _record('Download speed', uri.host, bytesReceived: received);
+      final underLoad = await loadedLatency;
       if (received <= 0 || seconds <= 0) return const SpeedResult.unavailable();
       return SpeedResult(
         downloadMbps: (received * 8) / seconds / 1000000.0,
         ok: true,
         bytesReceived: received,
-        loadedRttMs: underLoad.isEmpty
-            ? null
-            : underLoad.reduce((a, b) => a + b) / underLoad.length,
+        loadedRttMs: underLoad.avgMs,
       );
     } on TimeoutException {
       return const SpeedResult.unavailable();
@@ -336,6 +339,10 @@ class NetworkProbeImpl implements NetworkProbe {
     } on SocketException {
       return const SpeedResult.unavailable();
     } finally {
+      // Recorded here rather than on the happy path only: a refused or
+      // interrupted transfer still moved these bytes, and leaving them out is
+      // what made the totals disagree with the measured rate.
+      _record('Download speed', uri.host, bytesReceived: received);
       client.close();
     }
   }
@@ -363,7 +370,6 @@ class NetworkProbeImpl implements NetworkProbe {
         sent += chunk.length;
       }
       sw.stop();
-      _record('Upload speed', Uri.parse(kUploadUrl).host, bytesSent: sent);
       final seconds = sw.elapsedMilliseconds / 1000.0;
       if (sent <= 0 || seconds <= 0) return null;
       return (mbps: (sent * 8) / seconds / 1000000.0, bytes: sent);
@@ -374,6 +380,7 @@ class NetworkProbeImpl implements NetworkProbe {
     } on SocketException {
       return null;
     } finally {
+      _record('Upload speed', Uri.parse(kUploadUrl).host, bytesSent: sent);
       client.close();
     }
   }
@@ -388,7 +395,7 @@ class NetworkProbeImpl implements NetworkProbe {
       await for (final hop in NetworkTools.tracerouteHops(
         host,
         maxHops: 20,
-      ).timeout(const Duration(seconds: 60))) {
+      ).timeout(kTraceTimeout)) {
         if (hop.ip != null) {
           lastHop = hop.hostname != null
               ? '${hop.hostname} (${hop.ip})'

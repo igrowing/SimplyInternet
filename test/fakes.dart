@@ -73,6 +73,13 @@ class FakeNetworkProbe implements NetworkProbe {
   /// idle latency samples are taken before the link is saturated.
   final List<String> calls = [];
 
+  /// How many times each slow probe ran. A diagnosis that has already found a
+  /// hard failure must not pay for these at all, so the count is the evidence
+  /// that it fails fast.
+  int tracePathCount = 0;
+  int portsCount = 0;
+  int popularSitesCount = 0;
+
   @override
   Future<ConnectivityStatus> connectivity() async {
     if (throwOnConnectivity) {
@@ -97,7 +104,10 @@ class FakeNetworkProbe implements NetworkProbe {
   Future<bool> dnsResolves(String host) async => dnsOk;
 
   @override
-  Future<List<PortProbeResult>> probeCommonPorts() async => ports;
+  Future<List<PortProbeResult>> probeCommonPorts() async {
+    portsCount++;
+    return ports;
+  }
 
   @override
   Future<SpeedResult> measureThroughput() async {
@@ -115,14 +125,19 @@ class FakeNetworkProbe implements NetworkProbe {
   DataUsage dataUsage() => usage;
 
   @override
-  Future<IspPathResult> tracePath(String host) async => path;
+  Future<IspPathResult> tracePath(String host) async {
+    tracePathCount++;
+    return path;
+  }
 
   @override
   Future<String?> detectCountryCode() async => country;
 
   @override
-  Future<List<SiteReachability>> checkPopularSites(String? countryCode) async =>
-      sites;
+  Future<List<SiteReachability>> checkPopularSites(String? countryCode) async {
+    popularSitesCount++;
+    return sites;
+  }
 }
 
 /// Records the device actions requested so tests can assert on them.

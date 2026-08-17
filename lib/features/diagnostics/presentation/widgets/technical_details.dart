@@ -3,10 +3,11 @@ import 'package:flutter/services.dart';
 
 /// The expandable "Technical details" section shared by both features.
 ///
-/// The log lines use a small Markdown subset — `## Heading`, `- item` and an
-/// empty line as a separator — which is rendered as headings and bullets here
-/// and copied verbatim to the clipboard, so what the user pastes into a
-/// support ticket looks the same as what they read.
+/// The log lines use a small Markdown subset — `## Heading`, `- item`, a
+/// two-space-indented `  - item` for a detail that belongs to the item above
+/// it, and an empty line as a separator — which is rendered as headings and
+/// nested bullets here and copied verbatim to the clipboard, so what the user
+/// pastes into a support ticket looks the same as what they read.
 class TechnicalDetails extends StatelessWidget {
   const TechnicalDetails({required this.log, super.key});
 
@@ -64,13 +65,25 @@ class _LogLine extends StatelessWidget {
         ),
       );
     }
-    final bullet = line.startsWith('- ');
+    final nested = line.startsWith('  - ');
+    final bullet = nested || line.startsWith('- ');
     return Padding(
-      padding: EdgeInsets.only(left: bullet ? 8 : 0, bottom: 2),
+      padding: EdgeInsets.only(
+        left: nested
+            ? 24
+            : bullet
+            ? 8
+            : 0,
+        bottom: 2,
+      ),
       child: Align(
         alignment: Alignment.centerLeft,
         child: Text(
-          bullet ? '• ${line.substring(2)}' : line,
+          nested
+              ? '◦ ${line.substring(4)}'
+              : bullet
+              ? '• ${line.substring(2)}'
+              : line,
           style: const TextStyle(fontSize: 12.5, height: 1.35),
         ),
       ),

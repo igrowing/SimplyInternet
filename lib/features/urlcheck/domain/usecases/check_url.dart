@@ -10,12 +10,55 @@ class InvalidUrlException implements Exception {
   String toString() => message;
 }
 
+/// One conclusion: what the headline says, the finding that explains why, and
+/// the instructions that follow from it.
+typedef Conclusion = ({
+  UrlFinding finding,
+  String headline,
+  List<String> advice,
+});
+
 /// Runs every URL probe concurrently and distils the raw facts into an
 /// ordered list of plain-language findings plus a single headline verdict.
+///
+/// Explanation and instruction are kept in separate fields throughout: a
+/// finding only ever says what is wrong, and everything the user could do
+/// about it ends up in the report's advice list, so the UI can show one "What
+/// to do" block instead of hiding actions inside paragraphs of cause.
 class CheckUrl {
   const CheckUrl(this._inspector);
 
   final UrlInspector _inspector;
+
+  /// Instruction sets held as constants because the lint rules forbid
+  /// wrapped strings inside a list literal, and every one of these is longer
+  /// than a single line.
+  static const List<String> _certificateAdvice = [
+    'Do not enter passwords or card details on this site.',
+    _clockAdvice,
+    'If the clock is right, only the site owner can fix it.',
+  ];
+  static const String _clockAdvice =
+      'Check that your phone date and time are correct — a wrong clock makes '
+      'good certificates look broken.';
+  static const List<String> _noSuchAddressAdvice = [
+    'Check the spelling of the address.',
+    _unregisteredAdvice,
+  ];
+  static const String _unregisteredAdvice =
+      'If it is spelled correctly, the name is no longer registered — there '
+      'is nothing to fix on your side.';
+  static const List<String> _expiredAdvice = [_ownerRenewAdvice];
+  static const String _ownerRenewAdvice =
+      'Nothing on your side can fix this — only the site owner can renew the '
+      'name.';
+  static const List<String> _blockedAdvice = [_tryMobileAdvice, _vpnAdvice];
+  static const List<String> _refusedAdvice = [_tryMobileAdvice, _vpnAdvice];
+  static const String _tryMobileAdvice =
+      'Try the same address over mobile data: that skips your Wi-Fi network '
+      'and its filters.';
+  static const String _vpnAdvice =
+      'If it still fails, only a VPN set to another country gets around it.';
 
   /// Standard web ports probed when the user did not specify one, so we can
   /// spot a service that is only listening on an alternate port.
@@ -101,23 +144,21 @@ class CheckUrl {
       existsEvidence: existsEvidence,
     );
 
-    final findings = <UrlFinding>[
-      conclusion.finding,
-      // Only extras that add an action the conclusion does not already give.
-      ..._extras(
-        url: url,
-        fetch: fetch,
-        domain: domain,
-        ports: ports,
-        outage: outage,
-      ),
-    ];
+    // Only extras that add something the conclusion does not already give.
+    final extras = _extras(
+      url: url,
+      fetch: fetch,
+      domain: domain,
+      ports: ports,
+      outage: outage,
+    );
 
     return UrlCheckReport(
       url: url.toString(),
       reachable: fetch.isSuccess,
       headline: conclusion.headline,
-      findings: findings,
+      findings: [conclusion.finding, ...extras.findings],
+      advice: [...conclusion.advice, ...extras.advice],
       log: _log(
         url: url,
         registrable: registrable,
@@ -185,7 +226,7 @@ class CheckUrl {
         '',
         '## Ports',
         for (final p in ports)
-          '- ${p.port} (${p.service}): ${p.open ? "open" : "closed"}',
+          '- ${p.port} (${p.service}): ${p.open ? "open ✅" : "closed ❌"}',
       ],
       '',
       '## From other countries (check-host.net)',
@@ -193,8 +234,7 @@ class CheckUrl {
         '- Not available for this check'
       else ...[
         '- Reached from ${regions.reachable} of ${regions.total} locations',
-        for (final probe in regions.probes)
-          '- ${probe.location}: ${probe.reachable ? "reached" : "failed"}',
+        for (final probe in regions.probes) _probeLine(probe),
       ],
       '',
       '## Independent outage check (${outage.source})',
@@ -210,15 +250,15 @@ class CheckUrl {
 
   static String _probeLine(RegionProbe probe) {
     final status = probe.statusCode != null ? ' (${probe.statusCode})' : '';
-    return '- ${probe.location}: '
-        '${probe.reachable ? "reached" : "failed"}$status';
+    return '  - ${probe.location}: '
+        '${probe.reachable ? "reached ✅" : "failed ❌"}$status';
   }
 
   static String _alternateLine(OutageReport outage) =>
       '- Alternate address ${outage.alternateHost}: '
-      '${outage.alternateHostUp ? "reached" : "failed"}';
+      '${outage.alternateHostUp ? "reached ✅" : "failed ❌"}';
 
-  static String _yesNo(bool value) => value ? 'yes' : 'no';
+  static String _yesNo(bool value) => value ? 'yes ✅' : 'no ❌';
 
   static String _date(DateTime? value) =>
       value == null ? '-' : value.toIso8601String().split('T').first;
@@ -323,7 +363,7 @@ class CheckUrl {
   /// name that resolves nowhere is a wrong address, a name that resolves but
   /// answers nobody is an outage, and a name that answers others but not us
   /// is a block on our side.
-  ({UrlFinding finding, String headline}) _conclude({
+  Conclusion _conclude({
     required Uri url,
     required bool hostIsIp,
     required bool dnsOk,
@@ -348,22 +388,21 @@ class CheckUrl {
           title: 'Security certificate problem.',
           detail:
               'The site HTTPS certificate could not be trusted'
-              '${tls.issue != null ? " (${tls.issue})" : ""}. $consequence Do '
-              'not enter passwords. Check that your device date and time are '
-              'correct; if they are, the site is misconfigured and only its '
-              'owner can fix it.',
+              '${tls.issue != null ? " (${tls.issue})" : ""}. $consequence',
         ),
         headline: 'The site security certificate is not trusted',
+        advice: _certificateAdvice,
       );
     }
     if (fetch.isSuccess) return _workingConclusion(fetch, regions, outage);
     // The server itself answered: its status code is the reason, and no
     // outside opinion may contradict a reply we hold in our hands.
     if (fetch.reached && fetch.statusCode != null) {
+      final status = _httpStatus(fetch.statusCode!, fetch.retryAfterSeconds);
       return (
-        finding: _httpStatusFinding(fetch.statusCode!),
-        headline:
-            'The website answered with a problem (${fetch.statusCode}).',
+        finding: status.finding,
+        headline: 'The website answered with a problem (${fetch.statusCode}).',
+        advice: status.advice,
       );
     }
     if (upElsewhere) return _blockedConclusion(regions, outage);
@@ -377,11 +416,10 @@ class CheckUrl {
           title: "The address doesn't exist",
           detail:
               'The website name could not be found anywhere on the Internet.'
-              '$registry Check the spelling of the address. If it is spelled '
-              "correctly, the site's domain expired and was not renewed — "
-              'there is nothing to fix on your side.',
+              '$registry',
         ),
         headline: "This web address can't be found.",
+        advice: _noSuchAddressAdvice,
       );
     }
     if (domain.expired) {
@@ -392,9 +430,10 @@ class CheckUrl {
           detail:
               'The owner let the domain lapse'
               '${_expirySuffix(domain.expiry)}. Until they renew it, the '
-              'site will not work for anyone. There is nothing you can fix.',
+              'site will not work for anyone.',
         ),
         headline: 'The site domain has expired',
+        advice: _expiredAdvice,
       );
     }
     if (regions.downEverywhere || outage.downEverywhere) {
@@ -409,10 +448,12 @@ class CheckUrl {
           severity: UrlSeverity.problem,
           detail:
               'It could not be opened from $sources either, so the site is '
-              'down for everyone — not just you. There is nothing to fix on '
-              'your side.',
+              'down for everyone — not just you.',
         ),
         headline: 'The website is down for everyone',
+        advice: const [
+          'Wait and try again later — there is nothing to fix on your side.',
+        ],
       );
     }
     return (
@@ -421,17 +462,20 @@ class CheckUrl {
         detail:
             'The address exists, but no reply came back from the server'
             '${fetch.error != null ? " (${fetch.error})" : ""}. It is either '
-            'switched off or unreachable right now. Try again in a few '
-            'minutes, or on another network.',
+            'switched off or unreachable right now.',
       ),
       headline: 'The website is not responding',
+      advice: const [
+        'Try again in a few minutes.',
+        'Try the same address over mobile data to rule out your network.',
+      ],
     );
   }
 
   /// The site loaded for the user. Regional restrictions are reported as the
   /// single finding when present — a warning replaces the reassurance instead
   /// of sitting beside it, so a mixed result reads as one message.
-  ({UrlFinding finding, String headline}) _workingConclusion(
+  Conclusion _workingConclusion(
     HttpFetchResult fetch,
     RegionReport regions,
     OutageReport outage,
@@ -455,6 +499,7 @@ class CheckUrl {
               'fix.',
         ),
         headline: 'The website works for you',
+        advice: const [],
       );
     }
     final elsewhere = outage.available && outage.up > 0
@@ -472,15 +517,13 @@ class CheckUrl {
             'device.$elsewhere',
       ),
       headline: 'The website works',
+      advice: const [],
     );
   }
 
   /// The site is proven up elsewhere but not for us: one message covers both
   /// readings of "you" — this device/network, and this country.
-  ({UrlFinding finding, String headline}) _blockedConclusion(
-    RegionReport regions,
-    OutageReport outage,
-  ) {
+  Conclusion _blockedConclusion(RegionReport regions, OutageReport outage) {
     final byRegions =
         'it loads from ${regions.reachable} of ${regions.total} other '
         'countries';
@@ -502,80 +545,89 @@ class CheckUrl {
         detail:
             'The site is up — $evidence — but nothing came back on your '
             'connection.$blocked Either the site refuses visitors from your '
-            'country, or your network. A VPN set '
-            'to another country gets around it. Sometimes using mobile data instead of Wi-Fi helps.',
+            'country, or your network blocks it.',
       ),
       headline: 'The website seems blocked for you',
+      advice: _blockedAdvice,
     );
   }
 
-  /// Extra findings that carry an action the conclusion does not: a slow but
-  /// working site, an alternate address that does work, a service listening
-  /// on an unusual port, and a registration about to lapse. Nothing here
-  /// repeats or contradicts the conclusion.
-  List<UrlFinding> _extras({
+  /// Extra facts the conclusion does not cover: a slow but working site, an
+  /// alternate address that does work, a service listening on an unusual port,
+  /// and a registration about to lapse. Each one contributes an explanation, an
+  /// instruction, or both — never a mixture of the two in one sentence.
+  ({List<UrlFinding> findings, List<String> advice}) _extras({
     required Uri url,
     required HttpFetchResult fetch,
     required DomainInfo domain,
     required List<UrlPortResult> ports,
     required OutageReport outage,
   }) {
-    final out = <UrlFinding>[];
+    final findings = <UrlFinding>[];
+    final advice = <String>[];
     final ms = fetch.elapsedMs;
     if (fetch.isSuccess && ms != null && ms > 8000) {
-      out.add(
+      findings.add(
         UrlFinding(
           severity: UrlSeverity.warning,
           title: 'The website is very slow.',
           detail:
               'It took ${(ms / 1000).toStringAsFixed(1)} seconds to respond. '
-              'The site or your connection may be congested; try again later '
-              'or on a different network.',   // Action
+              'The site or your connection may be congested.',
         ),
       );
+      advice.add('Try again later, or over a different network.');
     }
     if (!fetch.isSuccess) {
       final alt = outage.alternateHost;
       if (alt != null && outage.alternateHostUp) {
-        out.add(
+        findings.add(
           UrlFinding(
             severity: UrlSeverity.info,
-            title: 'Try the "$alt" address.',
+            title: 'A similar address does work.',
             detail:
                 'The exact address did not work, but "$alt" did. You may '
-                'have left off (or added) a "www." — open $alt instead.',  // Action
+                'have left off (or added) a "www.".',
           ),
         );
+        advice.add('Open $alt instead.');
       }
-      out.addAll(_portHint(url, ports));
+      final port = _portHint(url, ports);
+      if (port != null) {
+        findings.add(port.finding);
+        advice.add(port.advice);
+      }
     }
-    if (fetch.isSuccess) out.addAll(_expiryHint(domain));
-    return out;
+    if (fetch.isSuccess) findings.addAll(_expiryHint(domain));
+    return (findings: findings, advice: advice);
   }
 
   /// Suggests the alternate web port when the usual one is closed but the
   /// alternate is open — the only case where a port number helps the user.
-  List<UrlFinding> _portHint(Uri url, List<UrlPortResult> ports) {
-    if (ports.isEmpty) return const [];
+  ({UrlFinding finding, String advice})? _portHint(
+    Uri url,
+    List<UrlPortResult> ports,
+  ) {
+    if (ports.isEmpty) return null;
     final isHttps = url.scheme == 'https';
     final mainPort = isHttps ? 443 : 80;
     final altPort = isHttps ? 8443 : 8080;
     final main = _portResult(ports, mainPort);
     final alt = _portResult(ports, altPort);
     if (main == null || main.open || alt == null || !alt.open) {
-      return const [];
+      return null;
     }
-    return [
-      UrlFinding(
+    return (
+      finding: UrlFinding(
         severity: UrlSeverity.info,
-        title: 'Try adding a port number.',
+        title: 'The service may be on an unusual port.',
         detail:
-            'The usual port $mainPort is closed, but port $altPort is open. '
-            'The service may live at '
-            '${url.scheme}://${url.host}:$altPort — try adding ":$altPort" '
-            'to the address.',
+            'The usual port $mainPort is closed, but port $altPort is open.',
       ),
-    ];
+      advice:
+          'Try the address with the port added: '
+          '${url.scheme}://${url.host}:$altPort',
+    );
   }
 
   /// Warns the owner-side risk of a registration lapsing within a month.
@@ -595,74 +647,122 @@ class CheckUrl {
     ];
   }
 
-  UrlFinding _httpStatusFinding(int code) {
+  /// What a status code means (the finding) and what to do about it (the
+  /// advice), kept apart so the instruction is never buried in the
+  /// explanation.
+  ({UrlFinding finding, List<String> advice}) _httpStatus(
+    int code,
+    int? retryAfterSeconds,
+  ) {
     switch (code) {
       case 401:
-        return const UrlFinding(
-          severity: UrlSeverity.warning,
-          title: 'The site works but needs you to log in first.',
-          detail: 'Sign-in required (401). Open it in a browser and sign in with your account.'  // Action
+        return (
+          finding: const UrlFinding(
+            severity: UrlSeverity.warning,
+            title: 'The site works but needs you to log in first.',
+            detail: 'Sign-in required (401).',
+          ),
+          advice: const ['Open it in a browser and sign in with your account.'],
         );
       case 403:
-        return const UrlFinding(
-          severity: UrlSeverity.problem,
-          title: 'The server refused the request',
-          detail:
-              'Access denied (403). This is often geo-fencing, '
-              'a network/firewall block, or a block on automated access. '
-              'Try a different network, mobile data, or a VPN.',   // Action
+        return (
+          finding: const UrlFinding(
+            severity: UrlSeverity.problem,
+            title: 'The server refused the request',
+            detail:
+                'Access denied (403). This is often geo-fencing, a '
+                'network/firewall block, or a block on automated access.',
+          ),
+          advice: _refusedAdvice,
         );
       case 404:
-        return const UrlFinding(
-          severity: UrlSeverity.warning,
-          title: 'Page not found (404).',
-          detail:
-              'The server is up but this exact page does not exist. Check '
-              'the address, or open the site home page and navigate from '   // Action
-              'there.',
+        return (
+          finding: const UrlFinding(
+            severity: UrlSeverity.warning,
+            title: 'Page not found (404).',
+            detail: 'The server is up but this exact page does not exist.',
+          ),
+          advice: const [
+            'Check the address for a typo.',
+            'Open the site home page and navigate from there.',
+          ],
         );
       case 408:
-        return const UrlFinding(
-          severity: UrlSeverity.warning,
-          title: 'Request timed out (408).',
-          detail:
-              'The server was too slow to accept the request.'
-              ' Try again; if it persists the site is overloaded.',   // Action
+        return (
+          finding: const UrlFinding(
+            severity: UrlSeverity.warning,
+            title: 'Request timed out (408).',
+            detail: 'The server was too slow to accept the request.',
+          ),
+          advice: const [
+            'Try again; if it keeps timing out the site is overloaded.',
+          ],
         );
       case 429:
-        return const UrlFinding(
-          severity: UrlSeverity.warning,
-          title: 'This site cannot process too fast queries from you.',
-          detail:
-              'Too many requests (429). Wait a minute and try again, '  // Action, read from Retry-After (seconds, or an HTTP date) how long to wait and use that prcise number, not a minute.
-              'and avoid refreshing repeatedly.',   // Action
+        // The server usually says how long to wait; quoting its own number
+        // beats a made-up "a minute".
+        final wait = retryAfterSeconds == null
+            ? 'Wait a minute and try again.'
+            : 'Wait ${_waitText(retryAfterSeconds)} — that is how long the '
+                  'site asked — and try again.';
+        return (
+          finding: const UrlFinding(
+            severity: UrlSeverity.warning,
+            title: 'The site is refusing this many requests from you.',
+            detail: 'Too many requests (429).',
+          ),
+          advice: [wait, 'Avoid refreshing repeatedly in the meantime.'],
         );
       case 451:
-        return const UrlFinding(
-          severity: UrlSeverity.warning,
-          title: 'The site is legally barred from serving your country or region.',
-          detail:
-              'Blocked for legal reasons (451). It is not broken and nothing on your side is wrong. A '
-              'VPN set to another country is the only way around it.',   // Action
+        return (
+          finding: const UrlFinding(
+            severity: UrlSeverity.warning,
+            title: 'The site is legally barred from serving your region.',
+            detail:
+                'Blocked for legal reasons (451). The site is not broken and '
+                'nothing on your side is wrong.',
+          ),
+          advice: const [
+            'A VPN set to another country is the only way around it.',
+          ],
         );
       case 500:
       case 502:
       case 503:
       case 504:
-        return UrlFinding(
-          severity: UrlSeverity.problem,
-          title: 'The problem is on the website end, not yours.',
-          detail:
-              'The website has a server error ($code). It may be '
-              'down or under maintenance. Wait and try again later.',   // Action
+        final wait = retryAfterSeconds == null
+            ? 'Wait a few minutes and try again.'
+            : 'Wait ${_waitText(retryAfterSeconds)} — that is how long the '
+                  'site asked — and try again.';
+        return (
+          finding: UrlFinding(
+            severity: UrlSeverity.problem,
+            title: 'The problem is on the website end, not yours.',
+            detail:
+                'The website has a server error ($code). It may be down or '
+                'under maintenance.',
+          ),
+          advice: [wait],
         );
       default:
-        return UrlFinding(
-          severity: UrlSeverity.info,
-          title: 'The site answered with an unusual code.',
-          detail: 'Unexpected response ($code). It may still work in a normal browser.'
+        return (
+          finding: UrlFinding(
+            severity: UrlSeverity.info,
+            title: 'The site answered with an unusual code.',
+            detail: 'Unexpected response ($code).',
+          ),
+          advice: const ['Try opening it in a normal browser — it may work.'],
         );
     }
+  }
+
+  /// "45 seconds", "3 minutes", "2 hours" — the server's own wait, in words a
+  /// person can act on.
+  static String _waitText(int seconds) {
+    if (seconds < 90) return '$seconds seconds';
+    final minutes = (seconds / 60).round();
+    if (minutes < 90) return '$minutes minutes';
+    return '${(minutes / 60).round()} hours';
   }
 
   UrlPortResult? _portResult(List<UrlPortResult> ports, int port) {

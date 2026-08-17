@@ -19,8 +19,15 @@ enum DiagnosisPhase { connection, running, done }
 
 /// Runs the diagnosis and returns exactly one [DiagnosisReport].
 ///
-/// After a fast local connectivity gate, every network probe is fired off
-/// concurrently to minimise total wait time; the gathered facts are then fed
+/// The probes run in two concurrent waves. The first wave is the reachability
+/// gate — router, captive portal, raw IP, DNS — which is nearly instant on a
+/// working link; the slow measurements (route trace, throughput, latency
+/// samples, popular sites) only start once that gate has been passed. That
+/// ordering is what makes a dead WAN or a captive portal report in seconds:
+/// running everything at once meant the user waited for the longest timeout in
+/// the set to expire before hearing a verdict that was already decided.
+///
+/// Within each wave the probes are concurrent, and the gathered facts are fed
 /// through the same ordered, short-circuiting decision tree — device link,
 /// router, captive portal, ISP/WAN, DNS, ports, ISP path — so the verdict
 /// categories stay mutually exclusive and deterministic regardless of the order
@@ -44,10 +51,12 @@ class RunDiagnosis {
   Future<DiagnosisReport> call({
     void Function(DiagnosisPhase phase)? onPhase,
   }) async {
-    // The log uses a small Markdown subset (`## heading`, `- item`) that the
-    // Technical details view renders and copies verbatim.
+    // The log uses a small Markdown subset (`## heading`, `- item`, `  - item`
+    // for a detail belonging to the line above) that the Technical details
+    // view renders and copies verbatim.
     final log = <String>[];
     void note(String s) => log.add('- $s');
+    void sub(String s) => log.add('  - $s');
     void head(String s) {
       if (log.isNotEmpty) log.add('');
       log.add('## $s');
@@ -55,22 +64,34 @@ class RunDiagnosis {
 
     void phase(DiagnosisPhase p) => onPhase?.call(p);
 
+    // Every exit, including the early ones, lists what actually ran: a
+    // diagnosis that stopped at "no Internet" still performed several checks,
+    // and empty technical details make it look as if it did nothing.
+    DiagnosisReport report(({Verdict verdict, Solution solution}) r) {
+      _noteTests(note, head, _probe.dataUsage());
+      return DiagnosisReport(
+        verdict: r.verdict,
+        solution: r.solution,
+        log: log,
+      );
+    }
+
     // ── 1. Device link (fast, local gate) ────────────────────────────────
     phase(DiagnosisPhase.connection);
     head('Device link');
     final conn = await _probe.connectivity();
     note(
       'Connectivity: ${conn.kind.name}, '
-      'flight mode: ${conn.airplaneMode ? "on" : "off"}',
+      'flight mode: ${conn.airplaneMode ? "on ✈️" : "off ✅"}',
     );
     if (conn.airplaneMode) {
-      return _report(VerdictCatalog.notConnected(airplane: true), log);
+      return report(VerdictCatalog.notConnected(airplane: true));
     }
     if (!conn.hasLink) {
-      return _report(VerdictCatalog.notConnected(airplane: false), log);
+      return report(VerdictCatalog.notConnected(airplane: false));
     }
 
-    // ── 2. Fire every remaining probe concurrently ───────────────────────
+    // ── 2. First wave: the reachability gate ─────────────────────────────
     phase(DiagnosisPhase.running);
     final gatewayMatters =
         conn.kind == ConnectivityKind.wifi ||
@@ -79,9 +100,6 @@ class RunDiagnosis {
     final captiveF = _probe.checkCaptivePortal();
     final rawF = _anyRawReachable();
     final dnsF = _probe.dnsResolves(kDnsProbeHost);
-    final portsF = _probe.probeCommonPorts();
-    final pathF = _probe.tracePath(kPathProbeHost);
-    final sitesF = _checkPopularSites();
 
     // Gateway reachability depends on the gateway IP, so resolve it first;
     // the ping still overlaps with all the probes started above.
@@ -89,6 +107,73 @@ class RunDiagnosis {
     final gwReachableF = (gateway != null && gatewayMatters)
         ? _probe.pingReachable(gateway)
         : Future<bool>.value(true);
+
+    final (gwReachable, captive, rawReachable, dnsOk) = await (
+      gwReachableF,
+      captiveF,
+      rawF,
+      dnsF,
+    ).wait;
+
+    // ── 3. Evaluate the ordered decision tree over the gathered facts ─────
+    head('Router');
+    note('Gateway: ${gateway ?? "unknown"}');
+    if (gateway != null && gatewayMatters) {
+      note('Gateway reachable: ${_yesNo(gwReachable)}');
+      if (!gwReachable) {
+        return report(VerdictCatalog.routerNotResponding(gateway));
+      }
+    }
+
+    head('Internet reachability');
+    note('Internet: ${captive.internetOk ? "reachable ✅" : "no answer ❌"}');
+    sub('Captive sign-in page: ${_yesNo(captive.portalDetected)}');
+    if (captive.portalDetected) {
+      return report(VerdictCatalog.captivePortal(captive.portalUrl));
+    }
+
+    if (!captive.internetOk) {
+      // The 204 endpoints did not confirm Internet. Decide between a DNS
+      // fault, an ISP path fault and a plain WAN outage using raw IP probes.
+      sub('Raw IP address reachable: ${_yesNo(rawReachable)}');
+      if (rawReachable) {
+        sub('Name resolves ($kDnsProbeHost): ${_yesNo(dnsOk)}');
+        if (!dnsOk) {
+          return report(VerdictCatalog.dnsProblem());
+        }
+        // Traced only here, where the answer decides between an ISP path
+        // fault and a plain outage: it is the slowest check there is, and on
+        // a working link nothing depends on it.
+        final path = await _probe.tracePath(kPathProbeHost);
+        sub('Route reached the Internet: ${_yesNo(path.reachedDestination)}');
+        if (!path.reachedDestination) {
+          return report(VerdictCatalog.ispPathProblem(path));
+        }
+      }
+      // On a cellular link there is no router/ISP line to blame: a dead data
+      // path means the mobile data itself is not passing traffic (roaming
+      // off, no allowance, carrier outage) rather than a home ISP outage.
+      if (conn.kind == ConnectivityKind.mobile) {
+        return report(
+          VerdictCatalog.mobileDataNoInternet(
+            signalWeak: conn.mobileSignalWeak,
+            signalGood: conn.mobileSignalGood,
+          ),
+        );
+      }
+      return report(VerdictCatalog.noInternetIsp());
+    }
+
+    // Internet works at IP/HTTP level from here on.
+    sub('Name resolves ($kDnsProbeHost): ${_yesNo(dnsOk)}');
+    if (!dnsOk) {
+      return report(VerdictCatalog.dnsProblem());
+    }
+
+    // ── 4. Second wave: measurements, only now that the link is usable ────
+    final portsF = _probe.probeCommonPorts();
+    final pathF = _probe.tracePath(kPathProbeHost);
+    final sitesF = _checkPopularSites();
     // Kept separate from the reachability ping above on purpose: that one falls
     // back to a TCP handshake so an ICMP-filtering router is not accused of
     // being dead, while these samples must stay pure ICMP to mean anything as
@@ -98,25 +183,11 @@ class RunDiagnosis {
     );
     // The throughput test deliberately starts only once the idle samples are
     // in: saturating the link first would inflate the very baseline the
-    // under-load figure is compared against. Both still overlap the DNS, port,
-    // portal and route probes, so no wall-clock time is added.
+    // under-load figure is compared against. Both still overlap the port,
+    // route and popular-site probes, so no wall-clock time is added.
     final speedF = qualityF.then((_) => _probe.measureThroughput());
 
-    final (
-      gwReachable,
-      captive,
-      rawReachable,
-      dnsOk,
-      ports,
-      speed,
-      path,
-      siteReport,
-      quality,
-    ) = await (
-      gwReachableF,
-      captiveF,
-      rawF,
-      dnsF,
+    final (ports, speed, path, siteReport, quality) = await (
       portsF,
       speedF,
       pathF,
@@ -125,93 +196,43 @@ class RunDiagnosis {
     ).wait;
     final linkQuality = quality.withLoadedRtt(speed.loadedRttMs);
 
-    // ── 3. Evaluate the ordered decision tree over the gathered facts ─────
-    head('Router');
-    note('Gateway: ${gateway ?? "unknown"}');
-    if (gateway != null && gatewayMatters) {
-      note('Gateway reachable: $gwReachable');
-      if (!gwReachable) {
-        return _report(VerdictCatalog.routerNotResponding(gateway), log);
-      }
-    }
-
-    head('Internet reachability');
-    note(
-      'Captive check: internetOk=${captive.internetOk}, '
-      'portal=${captive.portalDetected}',
-    );
-    if (captive.portalDetected) {
-      return _report(VerdictCatalog.captivePortal(captive.portalUrl), log);
-    }
-
-    if (!captive.internetOk) {
-      // The 204 endpoints did not confirm Internet. Decide between a DNS
-      // fault, an ISP path fault and a plain WAN outage using raw IP probes.
-      note('Raw IP reachable: $rawReachable');
-      if (rawReachable) {
-        note('DNS resolves $kDnsProbeHost: $dnsOk');
-        if (!dnsOk) {
-          return _report(VerdictCatalog.dnsProblem(), log);
-        }
-        note('Path reached destination: ${path.reachedDestination}');
-        if (!path.reachedDestination) {
-          return _report(VerdictCatalog.ispPathProblem(path), log);
-        }
-      }
-      // On a cellular link there is no router/ISP line to blame: a dead data
-      // path means the mobile data itself is not passing traffic (roaming
-      // off, no allowance, carrier outage) rather than a home ISP outage.
-      if (conn.kind == ConnectivityKind.mobile) {
-        return _report(
-          VerdictCatalog.mobileDataNoInternet(
-            signalWeak: conn.mobileSignalWeak,
-            signalGood: conn.mobileSignalGood,
-          ),
-          log,
-        );
-      }
-      return _report(VerdictCatalog.noInternetIsp(), log);
-    }
-
-    // Internet works at IP/HTTP level from here on.
-    note('DNS resolves $kDnsProbeHost: $dnsOk');
-    if (!dnsOk) {
-      return _report(VerdictCatalog.dnsProblem(), log);
-    }
-
     head('Ports');
     for (final p in ports) {
       note(
         'Port ${p.port}/${p.service}: '
-        '${p.reachable ? "open" : "blocked"}',
+        '${p.reachable ? "open ✅" : "blocked ❌"}',
       );
     }
     final anyOpen = ports.any((p) => p.reachable);
     final blocked = ports.where((p) => !p.reachable).toList();
     if (anyOpen && blocked.isNotEmpty) {
-      return _report(VerdictCatalog.portBlocked(blocked.first), log);
+      return report(VerdictCatalog.portBlocked(blocked.first));
     }
 
     note(
-      'Path reached destination: ${path.reachedDestination} '
+      'Route reached the Internet: ${_yesNo(path.reachedDestination)} '
       '(last hop: ${path.lastRespondingHop ?? "n/a"})',
     );
     if (!path.reachedDestination) {
-      return _report(VerdictCatalog.ispPathProblem(path), log);
+      return report(VerdictCatalog.ispPathProblem(path));
     }
 
     head('Popular sites');
     note('Country: ${siteReport.country ?? "unknown"}');
     final sites = siteReport.sites;
     final reachable = sites.where((s) => s.reachable).length;
-    note('Popular sites reachable: $reachable/${sites.length}');
+    final allSitesOk = sites.isNotEmpty && reachable == sites.length;
+    note(
+      'Popular sites reachable: $reachable/${sites.length} '
+      '${allSitesOk ? "✅" : "⚠️"}',
+    );
     if (sites.isNotEmpty && reachable == 0) {
       // Every real destination failed although the anycast checks passed —
       // treat as an ISP/WAN content-path outage rather than "all clear".
-      return _report(VerdictCatalog.noInternetIsp(), log);
+      return report(VerdictCatalog.noInternetIsp());
     }
 
-    // ── 4. Nothing is broken: judge what the connection can actually do ───
+    // ── 5. Nothing is broken: judge what the connection can actually do ───
     final capability = _assess(speed: speed, quality: linkQuality);
     _noteQuality(note, head, conn, speed, linkQuality, capability);
     _noteTests(note, head, _probe.dataUsage());
@@ -264,6 +285,13 @@ class RunDiagnosis {
         : '${speed.uploadMbps!.toStringAsFixed(1)} Mbps';
     note('Download: $down');
     note('Upload: $up');
+    // Printed next to the rates so the figures here and the totals in "Tests
+    // performed" can be checked against each other.
+    note(
+      'Moved by the speed test: '
+      'received ${DataUsage.formatBytes(speed.bytesReceived)}, '
+      'sent ${DataUsage.formatBytes(speed.bytesSent)}',
+    );
     _noteLatency(note, 'Router', quality.gateway);
     _noteLatency(note, 'Internet', quality.internet);
     final loaded = speed.loadedRttMs;
@@ -274,13 +302,27 @@ class RunDiagnosis {
         '${ratio == null ? "" : " (${ratio.toStringAsFixed(1)}x idle)"}',
       );
     }
-    head('Good for');
-    for (final outcome in capability.outcomes) {
-      final short = outcome.shortfalls.map((s) => s.text).join(', ');
-      final state = outcome.supported ? 'yes' : 'no — $short';
-      note('${outcome.name}: $state');
+    // Two plain lists rather than one list of yes/no answers: a name under
+    // "Good for" already says it fits, and the reason only matters for the
+    // activities that do not.
+    final supported = capability.supported;
+    if (supported.isNotEmpty) {
+      head('Good for');
+      for (final outcome in supported) {
+        note(outcome.name);
+      }
+    }
+    final unsupported = capability.unsupported;
+    if (unsupported.isNotEmpty) {
+      head('Not good enough for');
+      for (final outcome in unsupported) {
+        final short = outcome.shortfalls.map((s) => s.text).join(', ');
+        note('${outcome.name} — $short');
+      }
     }
   }
+
+  static String _yesNo(bool value) => value ? 'yes ✅' : 'no ❌';
 
   void _noteLatency(
     void Function(String) note,
@@ -313,7 +355,12 @@ class RunDiagnosis {
       note('${r.test} → ${r.target}${traffic.isEmpty ? "" : " ($traffic)"}');
     }
     final total = _formatTraffic(usage.bytesSent, usage.bytesReceived);
-    if (total.isNotEmpty) note('Total data used by this diagnosis: $total');
+    if (total.isNotEmpty) {
+      note('Total data used by this diagnosis: $total');
+      // Says what the total covers: it is the sum of every test above, so it
+      // is legitimately larger than the speed test figures alone.
+      note('That total covers every test above, not only the speed test');
+    }
   }
 
   /// "sent 1.2 kB, received 3 kB", dropping either half when it is zero so
@@ -339,12 +386,5 @@ class RunDiagnosis {
     final country = await _probe.detectCountryCode();
     final sites = await _probe.checkPopularSites(country);
     return (country: country, sites: sites);
-  }
-
-  DiagnosisReport _report(
-    ({Verdict verdict, Solution solution}) r,
-    List<String> log,
-  ) {
-    return DiagnosisReport(verdict: r.verdict, solution: r.solution, log: log);
   }
 }
