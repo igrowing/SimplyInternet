@@ -14,6 +14,16 @@ import 'package:simply_internet/features/diagnostics/domain/entities/network_fac
 import 'package:simply_internet/features/diagnostics/domain/entities/popular_sites.dart';
 import 'package:simply_internet/features/diagnostics/domain/repositories/network_probe.dart';
 
+/// Sends [count] ICMP echoes to a host and returns the round-trip times that
+/// came back. Injected rather than called directly so a test can measure the
+/// probes that use it without spawning `ping` (see [NetworkProbeImpl]).
+typedef PingRtts =
+    Future<List<double>> Function(
+      String host, {
+      required int count,
+      required Duration interval,
+    });
+
 /// Concrete [NetworkProbe] built on `connectivity_plus`, `network_info_plus`,
 /// `dart:io` sockets, `http`, and the vendored SimplyNet [NetworkTools]
 /// (traceroute). Every failure is turned into an explicit negative result
@@ -24,15 +34,23 @@ class NetworkProbeImpl implements NetworkProbe {
     NetworkInfo? networkInfo,
     PlatformActionsDatasource platform = const PlatformActionsDatasource(),
     http.Client Function()? clientFactory,
+    PingRtts? pingRtts,
   }) : _connectivity = connectivity ?? Connectivity(),
        _networkInfo = networkInfo ?? NetworkInfo(),
        _platform = platform,
-       _clientFactory = clientFactory ?? http.Client.new;
+       _clientFactory = clientFactory ?? http.Client.new,
+       _pingRtts = pingRtts ?? NetworkTools.pingRtts;
 
   final Connectivity _connectivity;
   final NetworkInfo _networkInfo;
   final PlatformActionsDatasource _platform;
   final http.Client Function() _clientFactory;
+
+  /// How latency is sampled. The throughput probe pings while the line is busy,
+  /// so a test that only replaces the HTTP client would still shell out to
+  /// `ping` — and on a host where ICMP is dropped (CI runners typically drop
+  /// it) each sample set costs tens of seconds of timeouts.
+  final PingRtts _pingRtts;
 
   /// Everything this probe did on the network, in the order it happened.
   final List<ProbeRecord> _records = [];
@@ -257,7 +275,7 @@ class NetworkProbeImpl implements NetworkProbe {
   }
 
   Future<LatencyStats> _sampleLatency(String test, String host) async {
-    final rtts = await NetworkTools.pingRtts(
+    final rtts = await _pingRtts(
       host,
       count: kLatencySamples,
       interval: kLatencyInterval,
@@ -291,16 +309,20 @@ class NetworkProbeImpl implements NetworkProbe {
 
   /// Downloads for at most [kDownloadWindow] and derives the rate from whatever
   /// arrived, so a slow link reports a low speed instead of timing out. The
-  /// round-trip time is sampled at the same time to expose saturation.
+  /// round-trip time is sampled while the bytes are flowing, to expose
+  /// saturation.
   Future<SpeedResult> _measureDownload() async {
     final uri = Uri.parse('$kDownloadUrl$kDownloadChunkBytes');
     final client = _clientFactory();
     // Sampled through the same helper as the idle probes so the packets it
-    // costs land in the transparency list like every other test.
-    final loadedLatency = _sampleLatency(
-      'Response time while the line is busy',
-      kLatencyProbeHost,
-    );
+    // costs land in the transparency list like every other test. Started only
+    // once the service has actually answered 200, for two reasons: a refused
+    // request ends the probe at once and there is then no load to measure, and
+    // a sample left running past that exit would append its record whenever it
+    // finished — possibly after the next diagnosis had already cleared the
+    // list, putting a busy-line measurement in a report that never downloaded
+    // anything.
+    Future<LatencyStats>? loadedLatency;
     var received = 0;
     try {
       final sw = Stopwatch()..start();
@@ -318,6 +340,13 @@ class NetworkProbeImpl implements NetworkProbe {
         if (streamed.statusCode != 200) {
           return const SpeedResult.unavailable();
         }
+        // The line is now carrying the transfer, which is the only condition
+        // under which this figure means anything. Only the first response
+        // starts it; the later requests are the same busy period continuing.
+        loadedLatency ??= _sampleLatency(
+          'Response time while the line is busy',
+          kLatencyProbeHost,
+        );
         await for (final chunk in streamed.stream.timeout(
           const Duration(seconds: 8),
         )) {
@@ -333,7 +362,7 @@ class NetworkProbeImpl implements NetworkProbe {
         downloadMbps: (received * 8) / seconds / 1000000.0,
         ok: true,
         bytesReceived: received,
-        loadedRttMs: underLoad.avgMs,
+        loadedRttMs: underLoad?.avgMs,
       );
     } on TimeoutException {
       return const SpeedResult.unavailable();
@@ -342,6 +371,12 @@ class NetworkProbeImpl implements NetworkProbe {
     } on SocketException {
       return const SpeedResult.unavailable();
     } finally {
+      // A transfer that died part way through leaves a sample in flight. It
+      // belongs to this run, so it is waited for here rather than abandoned:
+      // an orphan would record itself into whichever run happened to be
+      // current when its last probe timed out. Errors are swallowed so a
+      // failed sample cannot displace the download's own failure.
+      await loadedLatency?.then<void>((_) {}, onError: (Object _) {});
       // Recorded here rather than on the happy path only: a refused or
       // interrupted transfer still moved these bytes, and leaving them out is
       // what made the totals disagree with the measured rate.
