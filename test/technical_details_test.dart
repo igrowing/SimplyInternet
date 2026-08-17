@@ -58,6 +58,52 @@ void main() {
       expect(find.text('Technical details copied.'), findsOneWidget);
     });
 
+    testWidgets('indents a detail under the item it belongs to', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: TechnicalDetails(
+              log: [
+                '- Internet: reachable',
+                '  - Captive sign-in page: none',
+                'a plain line with no marker',
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Technical details'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('• Internet: reachable'), findsOneWidget);
+      expect(find.text('◦ Captive sign-in page: none'), findsOneWidget);
+      // A line with no marker is shown as written, not decorated with one.
+      expect(find.text('a plain line with no marker'), findsOneWidget);
+
+      // The nested detail sits further in than the item it qualifies, so the
+      // relationship is visible and not just implied by the order.
+      double leftOf(String text) => tester
+          .widget<Padding>(
+            find
+                .ancestor(of: find.text(text), matching: find.byType(Padding))
+                .first,
+          )
+          .padding
+          .resolve(TextDirection.ltr)
+          .left;
+
+      expect(
+        leftOf('◦ Captive sign-in page: none'),
+        greaterThan(leftOf('• Internet: reachable')),
+      );
+      expect(
+        leftOf('• Internet: reachable'),
+        greaterThan(leftOf('a plain line with no marker')),
+      );
+    });
+
     testWidgets('shows nothing when there is no log', (tester) async {
       await tester.pumpWidget(
         const MaterialApp(

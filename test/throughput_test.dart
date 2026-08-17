@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -223,6 +224,72 @@ void main() {
         probe.dataUsage().records.map((r) => r.test),
         contains('Download speed'),
       );
+    });
+
+    test('a download that never got through reports nothing', () async {
+      // Each transport failure is absorbed into "unavailable" rather than
+      // escaping: a diagnosis that cannot measure the line still has a verdict
+      // to give about everything else it checked.
+      for (final error in <Exception>[
+        TimeoutException('too slow'),
+        http.ClientException('closed'),
+        const SocketException('refused'),
+      ]) {
+        final probe = NetworkProbeImpl(
+          clientFactory: () => MockClient((_) async => throw error),
+          pingRtts: _instantPing,
+        );
+        final result = await probe.measureThroughput();
+        expect(result.ok, isFalse, reason: '$error');
+        expect(result.uploadMbps, isNull, reason: '$error');
+        // The failed attempt is still listed, with the nothing it moved.
+        expect(
+          probe.dataUsage().records.map((r) => r.test),
+          contains('Download speed'),
+          reason: '$error',
+        );
+      }
+    });
+
+    test('an upload that failed leaves the download figure standing', () async {
+      // The two directions are measured separately on purpose; losing the
+      // upload must not discard a download rate that was measured fine.
+      for (final error in <Exception>[
+        TimeoutException('too slow'),
+        http.ClientException('closed'),
+        const SocketException('refused'),
+      ]) {
+        final probe = NetworkProbeImpl(
+          clientFactory: () => MockClient((request) async {
+            if (request.url.path.contains('__up')) throw error;
+            return http.Response.bytes(Uint8List(1000 * 1000), 200);
+          }),
+          pingRtts: _instantPing,
+        );
+        final result = await probe.measureThroughput();
+        expect(result.ok, isTrue, reason: '$error');
+        expect(result.downloadMbps, greaterThan(0), reason: '$error');
+        expect(result.uploadMbps, isNull, reason: '$error');
+        expect(result.bytesSent, 0, reason: '$error');
+      }
+    });
+
+    test('an upload the server refuses stops rather than looping', () async {
+      final probe = NetworkProbeImpl(
+        clientFactory: () => MockClient((request) async {
+          if (request.url.path.contains('__up')) {
+            return http.Response('too large', 413);
+          }
+          return http.Response.bytes(Uint8List(1000 * 1000), 200);
+        }),
+        pingRtts: _instantPing,
+      );
+      final result = await probe.measureThroughput();
+      expect(result.ok, isTrue);
+      // Nothing was accepted, so there is no rate to report — and no figure
+      // invented from the bytes we pushed at a server that rejected them.
+      expect(result.uploadMbps, isNull);
+      expect(result.bytesSent, 0);
     });
 
     test('resetUsage empties the recorded tests', () async {
