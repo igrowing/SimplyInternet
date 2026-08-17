@@ -1,3 +1,4 @@
+import 'package:simply_internet/core/retest/cross_medium_retest.dart';
 import 'package:simply_internet/features/diagnostics/domain/entities/capability.dart';
 import 'package:simply_internet/features/diagnostics/domain/entities/link_quality.dart';
 import 'package:simply_internet/features/diagnostics/domain/entities/network_facts.dart';
@@ -447,7 +448,7 @@ class VerdictCatalog {
           ),
           SolutionAction(
             type: SolutionActionType.retestOverMobile,
-            label: 'Test over mobile data',
+            label: kTestOverMobileLabel,
           ),
         ];
       case ConnectivityKind.mobile:
@@ -458,7 +459,7 @@ class VerdictCatalog {
           ),
           SolutionAction(
             type: SolutionActionType.retestOverWifi,
-            label: 'Test over Wi-Fi',
+            label: kTestOverWifiLabel,
           ),
         ];
       case ConnectivityKind.ethernet:

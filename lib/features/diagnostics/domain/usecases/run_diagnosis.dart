@@ -133,7 +133,10 @@ class RunDiagnosis {
 
     head('Internet reachability');
     note('Internet: ${captive.internetOk ? "reachable ✅" : "no answer ❌"}');
-    sub('Captive sign-in page: ${_yesNo(captive.portalDetected)}');
+    sub(
+      'Captive sign-in page: '
+      '${_yesNo(captive.portalDetected, goodWhenTrue: false)}',
+    );
     if (captive.portalDetected) {
       return report(VerdictCatalog.captivePortal(captive.portalUrl));
     }
@@ -328,7 +331,12 @@ class RunDiagnosis {
     }
   }
 
-  static String _yesNo(bool value) => value ? 'yes ✅' : 'no ❌';
+  /// A yes/no answer with the mark on the *healthy* outcome rather than the
+  /// affirmative one. Most answers here are good news when they are "yes", but
+  /// a captive sign-in page is the opposite: finding one is the problem, so
+  /// "no ❌" would tell the user their working connection had failed a check.
+  static String _yesNo(bool value, {bool goodWhenTrue = true}) =>
+      '${value ? "yes" : "no"} ${value == goodWhenTrue ? "✅" : "❌"}';
 
   void _noteLatency(
     void Function(String) note,

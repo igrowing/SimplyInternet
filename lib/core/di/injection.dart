@@ -40,6 +40,7 @@ void configureDependencies(SharedPreferences prefs) {
       () => UrlCheckController(
         checkUrl: sl<CheckUrl>(),
         deviceActions: sl<DeviceActions>(),
+        networkProbe: sl<NetworkProbe>(),
       ),
     );
 }

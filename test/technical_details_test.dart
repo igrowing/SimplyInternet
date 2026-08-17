@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:simply_internet/features/diagnostics/domain/entities/network_facts.dart';
 import 'package:simply_internet/features/diagnostics/domain/usecases/run_diagnosis.dart';
 import 'package:simply_internet/features/diagnostics/presentation/widgets/technical_details.dart';
 
@@ -132,6 +133,34 @@ void main() {
       // The captive-portal answer belongs under the Internet line it
       // qualifies, not beside it as a separate top-level fact.
       expect(report.log, contains(startsWith('  - Captive sign-in page:')));
+    });
+
+    group('the tick marks the healthy answer, not the affirmative one', () {
+      test('no captive portal reads no ✅', () async {
+        // "no ❌" told the user that a connection with no sign-in page in the
+        // way had failed a check, when that is the outcome they want.
+        final report = await RunDiagnosis(FakeNetworkProbe()).call();
+        expect(report.log, contains('  - Captive sign-in page: no ✅'));
+      });
+
+      test('a captive portal found reads yes ❌', () async {
+        final report = await RunDiagnosis(
+          FakeNetworkProbe(
+            captiveResult: const CaptivePortalResult.portal(
+              'http://login.local',
+            ),
+          ),
+        ).call();
+        expect(report.log, contains('  - Captive sign-in page: yes ❌'));
+      });
+
+      test('the answers where yes is good are unchanged', () async {
+        final report = await RunDiagnosis(FakeNetworkProbe()).call();
+        final log = report.log.join('\n');
+        expect(log, contains('Gateway reachable: yes ✅'));
+        expect(log, contains('Name resolves (cloudflare.com): yes ✅'));
+        expect(log, contains('Route reached the Internet: yes ✅'));
+      });
     });
   });
 }

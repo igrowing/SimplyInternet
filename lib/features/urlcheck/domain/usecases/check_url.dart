@@ -69,7 +69,15 @@ class CheckUrl {
     (port: 8443, service: 'HTTPS-alt'),
   ];
 
-  Future<UrlCheckReport> call(String rawUrl) async {
+  /// Checks [rawUrl] and reports on it.
+  ///
+  /// [medium] is how the link in use is named ('Wi-Fi', 'mobile data', …) and
+  /// is recorded in the technical details, the way the diagnosis records the
+  /// medium it measured over: a result that differs between Wi-Fi and mobile
+  /// data is the whole point of the cross-medium re-check, and comparing two
+  /// reports means nothing if neither says which link it came from. Null when
+  /// the link could not be read, which the log states rather than guessing.
+  Future<UrlCheckReport> call(String rawUrl, {String? medium}) async {
     final url = _normalise(rawUrl);
     final host = url.host;
     final isHttps = url.scheme == 'https';
@@ -161,6 +169,7 @@ class CheckUrl {
       advice: [...conclusion.advice, ...extras.advice],
       log: _log(
         url: url,
+        medium: medium,
         registrable: registrable,
         isHttps: isHttps,
         dnsOk: dnsOk,
@@ -181,6 +190,7 @@ class CheckUrl {
   /// user can see exactly what was tested rather than a bare count.
   List<String> _log({
     required Uri url,
+    required String? medium,
     required String? registrable,
     required bool isHttps,
     required bool dnsOk,
@@ -194,7 +204,7 @@ class CheckUrl {
     final elapsed = fetch.elapsedMs != null ? '${fetch.elapsedMs} ms' : '-';
     final registration = domain.checked
         ? 'exists ${_yesNo(domain.exists)}, '
-              'expired ${_yesNo(domain.expired)}, '
+              'expired ${_yesNo(domain.expired, goodWhenTrue: false)}, '
               'expiry ${_date(domain.expiry)}'
         : 'not checked';
     final String certificate;
@@ -216,6 +226,9 @@ class CheckUrl {
       if (registrable != null) '- Registration ($registrable): $registration',
       '',
       '## From this device',
+      // First, because it qualifies everything under this heading: the same
+      // address can be blocked on one medium and fine on the other.
+      '- Tested over: ${medium ?? "not known"}',
       '- Opened the page: ${_yesNo(fetch.reached)}',
       '- Status code: ${fetch.statusCode ?? "-"}',
       '- Time to answer: $elapsed',
@@ -258,7 +271,11 @@ class CheckUrl {
       '- Alternate address ${outage.alternateHost}: '
       '${outage.alternateHostUp ? "reached ✅" : "failed ❌"}';
 
-  static String _yesNo(bool value) => value ? 'yes ✅' : 'no ❌';
+  /// A yes/no answer with the mark on the *healthy* outcome rather than the
+  /// affirmative one: a registration that has expired is bad news, so it reads
+  /// "yes ❌" and a live one reads "no ✅".
+  static String _yesNo(bool value, {bool goodWhenTrue = true}) =>
+      '${value ? "yes" : "no"} ${value == goodWhenTrue ? "✅" : "❌"}';
 
   static String _date(DateTime? value) =>
       value == null ? '-' : value.toIso8601String().split('T').first;

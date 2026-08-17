@@ -15,6 +15,7 @@ import 'fakes.dart';
 UrlCheckController _urlController() => UrlCheckController(
   checkUrl: CheckUrl(FakeUrlInspector()),
   deviceActions: FakeDeviceActions(),
+  networkProbe: FakeNetworkProbe(),
 );
 
 void main() {
@@ -110,10 +111,7 @@ void main() {
 
   testWidgets('URL check group runs and shows a result', (tester) async {
     final prefs = await SharedPreferences.getInstance();
-    final urlController = UrlCheckController(
-      checkUrl: CheckUrl(FakeUrlInspector()),
-      deviceActions: FakeDeviceActions(),
-    );
+    final urlController = _urlController();
 
     await tester.pumpWidget(
       MaterialApp(

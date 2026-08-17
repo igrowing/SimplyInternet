@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:simply_internet/features/diagnostics/domain/entities/network_facts.dart';
 import 'package:simply_internet/features/urlcheck/domain/entities/url_check_report.dart';
 import 'package:simply_internet/features/urlcheck/domain/usecases/check_url.dart';
 import 'package:simply_internet/features/urlcheck/presentation/controllers/url_check_controller.dart';
@@ -7,17 +8,29 @@ import 'package:simply_internet/features/urlcheck/presentation/widgets/url_check
 
 import 'fakes.dart';
 
-Widget wrap(UrlCheckReport report) => MaterialApp(
-  home: Scaffold(
-    body: UrlCheckResultView(
-      report: report,
-      controller: UrlCheckController(
-        checkUrl: CheckUrl(FakeUrlInspector()),
-        deviceActions: FakeDeviceActions(),
+/// A controller that has already run a check over [medium], so the view can be
+/// built against a known link rather than whatever the default happens to be.
+Future<UrlCheckController> _checkedOver(ConnectivityKind medium) async {
+  final controller = UrlCheckController(
+    checkUrl: CheckUrl(FakeUrlInspector()),
+    deviceActions: FakeDeviceActions(),
+    networkProbe: FakeNetworkProbe(
+      connectivityResult: ConnectivityStatus(
+        kind: medium,
+        airplaneMode: false,
       ),
     ),
-  ),
-);
+  );
+  await controller.check('example.com');
+  return controller;
+}
+
+Widget wrap(UrlCheckReport report, UrlCheckController controller) =>
+    MaterialApp(
+      home: Scaffold(
+        body: UrlCheckResultView(report: report, controller: controller),
+      ),
+    );
 
 void main() {
   group('UrlCheckResultView', () {
@@ -39,6 +52,7 @@ void main() {
             ],
             advice: ['Check the address for a typo.'],
           ),
+          await _checkedOver(ConnectivityKind.wifi),
         ),
       );
 
@@ -78,11 +92,55 @@ void main() {
               ),
             ],
           ),
+          await _checkedOver(ConnectivityKind.wifi),
         ),
       );
 
       expect(find.text('What to do'), findsOneWidget);
       expect(find.text('Open in browser'), findsOneWidget);
+    });
+
+    group('the cross-medium button names the medium in use', () {
+      const report = UrlCheckReport(
+        url: 'https://example.com',
+        reachable: true,
+        headline: 'The website works',
+        findings: [
+          UrlFinding(
+            severity: UrlSeverity.ok,
+            detail: 'The page answered normally (code 200).',
+          ),
+        ],
+      );
+
+      testWidgets('on Wi-Fi it offers mobile data', (tester) async {
+        await tester.pumpWidget(
+          wrap(report, await _checkedOver(ConnectivityKind.wifi)),
+        );
+        expect(find.text('Test over mobile data'), findsOneWidget);
+        expect(find.byIcon(Icons.signal_cellular_alt), findsOneWidget);
+      });
+
+      testWidgets('on mobile data it offers Wi-Fi', (tester) async {
+        // Offering "test over mobile data" to someone already on mobile data
+        // is what this replaced.
+        await tester.pumpWidget(
+          wrap(report, await _checkedOver(ConnectivityKind.mobile)),
+        );
+        expect(find.text('Test over Wi-Fi'), findsOneWidget);
+        expect(find.text('Test over mobile data'), findsNothing);
+        expect(find.byIcon(Icons.wifi), findsOneWidget);
+      });
+
+      testWidgets('on a wired link it offers neither', (tester) async {
+        await tester.pumpWidget(
+          wrap(report, await _checkedOver(ConnectivityKind.ethernet)),
+        );
+        expect(find.textContaining('Test over'), findsNothing);
+        // The rest of the block is untouched — only the offer that makes no
+        // sense here is absent.
+        expect(find.text('Open in browser'), findsOneWidget);
+      });
     });
   });
 }
