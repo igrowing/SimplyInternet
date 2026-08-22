@@ -86,7 +86,7 @@ class VerdictCatalog {
       solution: const Solution(
         message:
             'Restart your router: unplug it, wait 30 seconds, plug it '
-            'back in, and let it about 2-5 minutes to start up. Then run '
+            'back in, and let it take about 2-5 minutes to start up. Then run '
             'the test again.',
         actions: [
           SolutionAction(type: SolutionActionType.retry, label: 'Test again'),
@@ -240,14 +240,14 @@ class VerdictCatalog {
         category: VerdictCategory.portBlocked,
         title: 'Port ${blocked.port} is blocked',
         detail:
-            'General Internet works, but ${blocked.service} traffic on '
+            'General Internet access works, but ${blocked.service} traffic on '
             'port ${blocked.port} is being blocked — likely by a firewall on '
             'this network. Some apps that rely on this port will not work.',
         detailArg: '${blocked.port}',
       ),
       solution: Solution(
         message:
-            'If you connected now to a managed network (work, school, '
+            "If you're currently connected to a managed network (work, school, "
             'public Wi-Fi), port ${blocked.port} is blocked by policy — '
             'use a different network, or mobile data (not WiFi), or a '
             'VPN. On your own network, check the firewall rules in your '
@@ -275,7 +275,7 @@ class VerdictCatalog {
       ),
       solution: const Solution(
         message:
-            'There is nothing to fix on your device and in your '
+            'There is nothing to fix on your device or in your '
             'network. Report the failing route to your Internet provider '
             '(mention that traceroute stops '
             'partway). It usually clears once they fix the route.',
@@ -306,7 +306,7 @@ class VerdictCatalog {
             title: 'Your $mediumName is good for $uses — and more',
             detail:
                 '${_measured(medium, speed)} If something still feels wrong, '
-                'it is most likely that one app or website, not your '
+                'it is most likely one app or website — not your '
                 'connection.',
           ),
           solution: null,
@@ -404,7 +404,7 @@ class VerdictCatalog {
     }
     if (assessment.throughputOnlyProblem) {
       return 'The connection speed is not sufficient. Either your Internet '
-          'plan is too low or your provider is throttling the line.';
+          'plan is too slow or your provider is throttling the line.';
     }
     return '';
   }

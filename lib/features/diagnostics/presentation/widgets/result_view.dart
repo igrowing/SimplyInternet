@@ -196,7 +196,7 @@ class _CapabilityList extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.all(8),
             child: Text(
-              'Upload could not be measured, so upload needs were not judged.',
+              'Upload could not be measured, therefore not assessed.',
               style: theme.textTheme.bodySmall,
             ),
           ),
