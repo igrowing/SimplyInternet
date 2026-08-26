@@ -7,6 +7,7 @@ import 'package:simply_internet/core/theme/theme_controller.dart';
 import 'package:simply_internet/features/diagnostics/domain/usecases/run_diagnosis.dart';
 import 'package:simply_internet/features/diagnostics/presentation/controllers/diagnosis_controller.dart';
 import 'package:simply_internet/features/diagnostics/presentation/pages/home_page.dart';
+import 'package:simply_internet/features/settings/presentation/controllers/settings_controller.dart';
 import 'package:simply_internet/features/urlcheck/domain/usecases/check_url.dart';
 import 'package:simply_internet/features/urlcheck/presentation/controllers/url_check_controller.dart';
 
@@ -66,47 +67,45 @@ void main() {
     expect(find.text('v1.0.2'), findsOneWidget);
   });
 
-  testWidgets('theme toggle switches to dark then light', (tester) async {
+  testWidgets('settings gear opens the Settings screen', (tester) async {
     final prefs = await SharedPreferences.getInstance();
-    final themeController = ThemeController(prefs);
-    final controller = DiagnosisController(
-      runDiagnosis: RunDiagnosis(FakeNetworkProbe()),
-      deviceActions: FakeDeviceActions(),
-    );
 
+    // Providers must sit above MaterialApp (not just above HomePage), or a
+    // pushed route — like SettingsPage — falls outside their scope.
     await tester.pumpWidget(
       MultiProvider(
         providers: [
-          ChangeNotifierProvider<ThemeController>.value(value: themeController),
-          ChangeNotifierProvider<DiagnosisController>.value(value: controller),
+          ChangeNotifierProvider<ThemeController>.value(
+            value: ThemeController(prefs),
+          ),
+          ChangeNotifierProvider<SettingsController>.value(
+            value: SettingsController(
+              prefs: prefs,
+              deviceActions: FakeDeviceActions(),
+            ),
+          ),
+          ChangeNotifierProvider<DiagnosisController>.value(
+            value: DiagnosisController(
+              runDiagnosis: RunDiagnosis(FakeNetworkProbe()),
+              deviceActions: FakeDeviceActions(),
+            ),
+          ),
           ChangeNotifierProvider<UrlCheckController>.value(
             value: _urlController(),
           ),
         ],
-        child: Consumer<ThemeController>(
-          builder: (context, theme, _) => MaterialApp(
-            themeMode: theme.mode,
-            theme: ThemeData(useMaterial3: true),
-            darkTheme: ThemeData(
-              brightness: Brightness.dark,
-              useMaterial3: true,
-            ),
-            home: const HomePage(),
-          ),
-        ),
+        child: const MaterialApp(home: HomePage()),
       ),
     );
-    await tester.pump();
-
-    expect(themeController.mode, ThemeMode.system);
-
-    await tester.tap(find.byIcon(Icons.dark_mode));
     await tester.pumpAndSettle();
-    expect(themeController.mode, ThemeMode.dark);
 
-    await tester.tap(find.byIcon(Icons.light_mode));
+    await tester.tap(find.byIcon(Icons.settings_outlined));
     await tester.pumpAndSettle();
-    expect(themeController.mode, ThemeMode.light);
+
+    expect(find.text('Settings'), findsOneWidget);
+    expect(find.text('Language'), findsOneWidget);
+    expect(find.text('Theme'), findsOneWidget);
+    expect(find.text('Font size'), findsOneWidget);
   });
 
   testWidgets('URL check group runs and shows a result', (tester) async {

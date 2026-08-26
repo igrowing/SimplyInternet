@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
-import 'package:simply_internet/core/theme/theme_controller.dart';
 import 'package:simply_internet/features/diagnostics/presentation/controllers/diagnosis_controller.dart';
 import 'package:simply_internet/features/diagnostics/presentation/widgets/result_view.dart';
+import 'package:simply_internet/features/settings/presentation/pages/settings_page.dart';
 import 'package:simply_internet/features/urlcheck/presentation/controllers/url_check_controller.dart';
 import 'package:simply_internet/features/urlcheck/presentation/widgets/url_check_result_view.dart';
 
@@ -46,7 +46,15 @@ class _HomePageState extends State<HomePage> {
       appBar: AppBar(
         titleSpacing: 0,
         title: const _AppBarTitle(),
-        actions: const [_ThemeToggleButton()],
+        actions: [
+          IconButton(
+            tooltip: 'Settings',
+            icon: const Icon(Icons.settings_outlined),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const SettingsPage()),
+            ),
+          ),
+        ],
       ),
       body: SafeArea(
         child: Consumer2<DiagnosisController, UrlCheckController>(
@@ -341,24 +349,6 @@ class _AppBarTitle extends StatelessWidget {
           ],
         ),
       ],
-    );
-  }
-}
-
-/// Toggles the app between light and dark. Follows the system theme until the
-/// first tap (see [ThemeController]).
-class _ThemeToggleButton extends StatelessWidget {
-  const _ThemeToggleButton();
-
-  @override
-  Widget build(BuildContext context) {
-    final controller = context.watch<ThemeController>();
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return IconButton(
-      tooltip: isDark ? 'Switch to light theme' : 'Switch to dark theme',
-      icon: Icon(isDark ? Icons.light_mode : Icons.dark_mode),
-      onPressed: () =>
-          controller.toggle(MediaQuery.platformBrightnessOf(context)),
     );
   }
 }

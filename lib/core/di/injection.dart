@@ -8,6 +8,7 @@ import 'package:simply_internet/features/diagnostics/domain/repositories/device_
 import 'package:simply_internet/features/diagnostics/domain/repositories/network_probe.dart';
 import 'package:simply_internet/features/diagnostics/domain/usecases/run_diagnosis.dart';
 import 'package:simply_internet/features/diagnostics/presentation/controllers/diagnosis_controller.dart';
+import 'package:simply_internet/features/settings/presentation/controllers/settings_controller.dart';
 import 'package:simply_internet/features/urlcheck/data/repositories/url_inspector_impl.dart';
 import 'package:simply_internet/features/urlcheck/domain/repositories/url_inspector.dart';
 import 'package:simply_internet/features/urlcheck/domain/usecases/check_url.dart';
@@ -26,6 +27,12 @@ void configureDependencies(SharedPreferences prefs) {
     ..registerLazySingleton<NetworkProbe>(NetworkProbeImpl.new)
     ..registerLazySingleton<DeviceActions>(
       () => DeviceActionsImpl(sl<PlatformActionsDatasource>()),
+    )
+    ..registerLazySingleton(
+      () => SettingsController(
+        prefs: sl<SharedPreferences>(),
+        deviceActions: sl<DeviceActions>(),
+      ),
     )
     ..registerLazySingleton(() => RunDiagnosis(sl<NetworkProbe>()))
     ..registerLazySingleton<UrlInspector>(UrlInspectorImpl.new)

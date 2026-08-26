@@ -5,6 +5,7 @@ import 'package:simply_internet/core/di/injection.dart';
 import 'package:simply_internet/core/theme/theme_controller.dart';
 import 'package:simply_internet/features/diagnostics/presentation/controllers/diagnosis_controller.dart';
 import 'package:simply_internet/features/diagnostics/presentation/pages/home_page.dart';
+import 'package:simply_internet/features/settings/presentation/controllers/settings_controller.dart';
 import 'package:simply_internet/features/urlcheck/presentation/controllers/url_check_controller.dart';
 
 Future<void> main() async {
@@ -19,10 +20,17 @@ class SimplyInternetApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider<ThemeController>.value(
-      value: sl<ThemeController>(),
-      child: Consumer<ThemeController>(
-        builder: (context, theme, _) {
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider<ThemeController>.value(
+          value: sl<ThemeController>(),
+        ),
+        ChangeNotifierProvider<SettingsController>.value(
+          value: sl<SettingsController>(),
+        ),
+      ],
+      child: Consumer2<ThemeController, SettingsController>(
+        builder: (context, theme, settings, _) {
           return MaterialApp(
             title: 'SimplyInternet',
             debugShowCheckedModeBanner: false,
@@ -32,6 +40,14 @@ class SimplyInternetApp extends StatelessWidget {
               colorSchemeSeed: Colors.blue,
               brightness: Brightness.dark,
               useMaterial3: true,
+            ),
+            // Scales every piece of text in the app proportionally; see
+            // AppFontScale for why one multiplier here is enough.
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(context).copyWith(
+                textScaler: TextScaler.linear(settings.fontScale.scaleFactor),
+              ),
+              child: child!,
             ),
             home: MultiProvider(
               providers: [
