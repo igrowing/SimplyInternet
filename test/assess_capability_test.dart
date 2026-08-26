@@ -176,7 +176,7 @@ void main() {
         speed: speed,
         quality: quality,
       );
-      expect(out.verdict.detail, contains('upload was not judged'));
+      expect(out.verdict.detail, contains('not assessed'));
       // Only the metrics that failed the criteria are spelled out.
       expect(out.verdict.detail, contains('packet loss'));
       expect(out.verdict.detail, isNot(contains('download 1.0 Mbps')));

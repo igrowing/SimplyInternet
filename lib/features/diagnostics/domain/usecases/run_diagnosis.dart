@@ -133,7 +133,10 @@ class RunDiagnosis {
 
     head('Internet reachability');
     note('Internet: ${captive.internetOk ? "reachable ✅" : "no answer ❌"}');
-    sub('Captive sign-in page: ${_yesNo(captive.portalDetected)}');
+    sub(
+      'Captive sign-in page: '
+      '${_yesNo(captive.portalDetected, goodWhenTrue: false)}',
+    );
     if (captive.portalDetected) {
       return report(VerdictCatalog.captivePortal(captive.portalUrl));
     }
@@ -145,7 +148,7 @@ class RunDiagnosis {
       if (rawReachable) {
         sub('Name resolves ($kDnsProbeHost): ${_yesNo(dnsOk)}');
         if (!dnsOk) {
-          return report(VerdictCatalog.dnsProblem());
+          return report(VerdictCatalog.dnsProblem(medium: conn.kind));
         }
         // Traced only here, where the answer decides between an ISP path
         // fault and a plain outage: it is the slowest check there is, and on
@@ -153,7 +156,7 @@ class RunDiagnosis {
         final path = await _probe.tracePath(kPathProbeHost);
         sub('Route reached the Internet: ${_yesNo(path.reachedDestination)}');
         if (!path.reachedDestination) {
-          return report(VerdictCatalog.ispPathProblem(path));
+          return report(VerdictCatalog.ispPathProblem(path, medium: conn.kind));
         }
       }
       // On a cellular link there is no router/ISP line to blame: a dead data
@@ -167,13 +170,13 @@ class RunDiagnosis {
           ),
         );
       }
-      return report(VerdictCatalog.noInternetIsp());
+      return report(VerdictCatalog.noInternetIsp(medium: conn.kind));
     }
 
     // Internet works at IP/HTTP level from here on.
     sub('Name resolves ($kDnsProbeHost): ${_yesNo(dnsOk)}');
     if (!dnsOk) {
-      return report(VerdictCatalog.dnsProblem());
+      return report(VerdictCatalog.dnsProblem(medium: conn.kind));
     }
 
     // ── 4. Second wave: measurements, only now that the link is usable ────
@@ -212,7 +215,9 @@ class RunDiagnosis {
     final anyOpen = ports.any((p) => p.reachable);
     final blocked = ports.where((p) => !p.reachable).toList();
     if (anyOpen && blocked.isNotEmpty) {
-      return report(VerdictCatalog.portBlocked(blocked.first));
+      return report(
+        VerdictCatalog.portBlocked(blocked.first, medium: conn.kind),
+      );
     }
 
     note(
@@ -220,7 +225,7 @@ class RunDiagnosis {
       '(last hop: ${path.lastRespondingHop ?? "n/a"})',
     );
     if (!path.reachedDestination) {
-      return report(VerdictCatalog.ispPathProblem(path));
+      return report(VerdictCatalog.ispPathProblem(path, medium: conn.kind));
     }
 
     head('Popular sites');
@@ -235,7 +240,7 @@ class RunDiagnosis {
     if (sites.isNotEmpty && reachable == 0) {
       // Every real destination failed although the anycast checks passed —
       // treat as an ISP/WAN content-path outage rather than "all clear".
-      return report(VerdictCatalog.noInternetIsp());
+      return report(VerdictCatalog.noInternetIsp(medium: conn.kind));
     }
 
     // ── 5. Nothing is broken: judge what the connection can actually do ───
@@ -328,7 +333,12 @@ class RunDiagnosis {
     }
   }
 
-  static String _yesNo(bool value) => value ? 'yes ✅' : 'no ❌';
+  /// A yes/no answer with the mark on the *healthy* outcome rather than the
+  /// affirmative one. Most answers here are good news when they are "yes", but
+  /// a captive sign-in page is the opposite: finding one is the problem, so
+  /// "no ❌" would tell the user their working connection had failed a check.
+  static String _yesNo(bool value, {bool goodWhenTrue = true}) =>
+      '${value ? "yes" : "no"} ${value == goodWhenTrue ? "✅" : "❌"}';
 
   void _noteLatency(
     void Function(String) note,

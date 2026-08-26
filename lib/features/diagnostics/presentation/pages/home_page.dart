@@ -232,7 +232,7 @@ class _DiagnoseGroup extends StatelessWidget {
         Icon(Icons.wifi_find, size: iconSize, color: theme.colorScheme.primary),
         const SizedBox(height: 16),
         Text(
-          'Internet does not work?\nInstable? Works partially?',
+          'Internet not working?\nUnstable? Works partially?',
           textAlign: TextAlign.center,
           style: theme.textTheme.titleLarge,
         ),
@@ -244,7 +244,7 @@ class _DiagnoseGroup extends StatelessWidget {
             onPressed: onStart,
             icon: const Icon(Icons.search, size: 28),
             label: const Text(
-              'Find the problem and give solution',
+              'Find the problem and give a solution',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
@@ -272,7 +272,7 @@ class _UrlCheckGroup extends StatelessWidget {
         Icon(Icons.link, size: 56, color: theme.colorScheme.primary),
         const SizedBox(height: 16),
         Text(
-          'Not working particular website or service?\n'
+          'A particular website or service not working?\n'
           'Paste its link (URL) here:',
           textAlign: TextAlign.center,
           style: theme.textTheme.titleMedium,
@@ -331,7 +331,7 @@ class _AppBarTitle extends StatelessWidget {
               builder: (context, snapshot) {
                 final version = snapshot.data?.version;
                 return Text(
-                  version == null ? '' : 'v.$version',
+                  version == null ? '' : 'v$version',
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),

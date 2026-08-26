@@ -168,6 +168,30 @@ void main() {
         );
         final report = await RunDiagnosis(probe).call();
         expect(report.verdict.category, VerdictCategory.noInternetIsp);
+        expect(report.verdict.detail, contains('router'));
+      },
+    );
+
+    test(
+      'reports noInternetIsp with carrier wording, not router wording, '
+      'when every popular site is unreachable on mobile data',
+      () async {
+        final probe = FakeNetworkProbe(
+          connectivityResult: const ConnectivityStatus(
+            kind: ConnectivityKind.mobile,
+            airplaneMode: false,
+          ),
+          sites: const [
+            SiteReachability(host: 'a.com', label: 'A', reachable: false),
+            SiteReachability(host: 'b.com', label: 'B', reachable: false),
+          ],
+        );
+        final report = await RunDiagnosis(probe).call();
+        expect(report.verdict.category, VerdictCategory.noInternetIsp);
+        expect(report.verdict.detail, isNot(contains('router')));
+        expect(report.verdict.detail, contains('carrier'));
+        expect(report.solution!.message, isNot(contains('router')));
+        expect(report.solution!.message, isNot(contains('DSL')));
       },
     );
 

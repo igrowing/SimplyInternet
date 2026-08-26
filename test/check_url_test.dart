@@ -362,5 +362,56 @@ void main() {
         throwsA(isA<InvalidUrlException>()),
       );
     });
+
+    group('the log says which link the check ran over', () {
+      test('names the medium it was given', () async {
+        // Two reports of the same address are only comparable if each says
+        // which link it came from — the point of the cross-medium re-check.
+        final report = await CheckUrl(
+          FakeUrlInspector(),
+        ).call('example.com', medium: 'mobile data');
+        expect(report.log, contains('- Tested over: mobile data'));
+        // Under the heading it qualifies, ahead of the findings from that link.
+        final section = report.log.indexOf('## From this device');
+        expect(report.log[section + 1], '- Tested over: mobile data');
+      });
+
+      test('says so plainly when the link could not be read', () async {
+        final report = await CheckUrl(FakeUrlInspector()).call('example.com');
+        expect(report.log, contains('- Tested over: not known'));
+      });
+    });
+
+    group('the tick marks the healthy answer, not the affirmative one', () {
+      test('a live registration reads no ✅ for expired', () async {
+        final report = await CheckUrl(
+          FakeUrlInspector(
+            domain: DomainInfo(
+              checked: true,
+              exists: true,
+              expiry: DateTime.now().add(const Duration(days: 400)),
+            ),
+          ),
+        ).call('example.com');
+        final line = report.log.firstWhere((l) => l.contains('Registration'));
+        expect(line, contains('exists yes ✅'));
+        expect(line, contains('expired no ✅'));
+      });
+
+      test('an expired registration reads yes ❌', () async {
+        final report = await CheckUrl(
+          FakeUrlInspector(
+            domain: DomainInfo(
+              checked: true,
+              exists: true,
+              expired: true,
+              expiry: DateTime.now().subtract(const Duration(days: 5)),
+            ),
+          ),
+        ).call('example.com');
+        final line = report.log.firstWhere((l) => l.contains('Registration'));
+        expect(line, contains('expired yes ❌'));
+      });
+    });
   });
 }

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:simply_internet/features/diagnostics/domain/entities/network_facts.dart';
 import 'package:simply_internet/features/urlcheck/domain/entities/url_check_report.dart';
 import 'package:simply_internet/features/urlcheck/domain/usecases/check_url.dart';
 import 'package:simply_internet/features/urlcheck/presentation/controllers/url_check_controller.dart';
@@ -13,7 +14,7 @@ class _FailingCheckUrl extends CheckUrl {
   _FailingCheckUrl() : super(FakeUrlInspector());
 
   @override
-  Future<UrlCheckReport> call(String rawUrl) async =>
+  Future<UrlCheckReport> call(String rawUrl, {String? medium}) async =>
       throw Exception('the inspector fell over');
 }
 
@@ -25,7 +26,7 @@ class _HangingCheckUrl extends CheckUrl {
   int calls = 0;
 
   @override
-  Future<UrlCheckReport> call(String rawUrl) {
+  Future<UrlCheckReport> call(String rawUrl, {String? medium}) {
     calls++;
     return Completer<UrlCheckReport>().future;
   }
@@ -36,11 +37,15 @@ void main() {
     late FakeDeviceActions actions;
     late UrlCheckController controller;
 
+    late FakeNetworkProbe probe;
+
     setUp(() {
       actions = FakeDeviceActions();
+      probe = FakeNetworkProbe();
       controller = UrlCheckController(
         checkUrl: CheckUrl(FakeUrlInspector()),
         deviceActions: actions,
+        networkProbe: probe,
       );
     });
 
@@ -78,6 +83,7 @@ void main() {
         busy = UrlCheckController(
           checkUrl: hanging,
           deviceActions: FakeDeviceActions(),
+          networkProbe: FakeNetworkProbe(),
         );
       });
 
@@ -121,6 +127,7 @@ void main() {
       final failing = UrlCheckController(
         checkUrl: _FailingCheckUrl(),
         deviceActions: actions,
+        networkProbe: probe,
       );
       await failing.check('example.com');
       expect(failing.status, UrlCheckStatus.error);
@@ -172,11 +179,11 @@ void main() {
       expect(controller.error, isNull);
     });
 
-    test('a mobile re-check waits for the user to come back', () async {
+    test('a cross-medium re-check waits for the user to come back', () async {
       await controller.check('example.com');
       expect(controller.status, UrlCheckStatus.done);
 
-      final done = await controller.retestOverMobile();
+      final done = await controller.retestOverOtherMedium();
       expect(done, isTrue);
       // Sent to the Wi-Fi panel; the check itself has not started again.
       expect(actions.calls, contains('wifi'));
@@ -197,7 +204,7 @@ void main() {
     });
 
     test('there is nothing to re-check before the first check', () async {
-      final done = await controller.retestOverMobile();
+      final done = await controller.retestOverOtherMedium();
       expect(done, isFalse);
       expect(actions.calls, isEmpty);
     });
@@ -207,9 +214,78 @@ void main() {
       // after it must still know which address to check again.
       await controller.check('example.com');
       controller.reset();
-      expect(await controller.retestOverMobile(), isTrue);
+      expect(await controller.retestOverOtherMedium(), isTrue);
       await controller.runPendingRetest();
       expect(controller.report!.url, 'https://example.com');
+    });
+
+    group('offers the medium the user is not on', () {
+      Future<UrlCheckController> checkedOver(ConnectivityKind kind) async {
+        probe.connectivityResult = ConnectivityStatus(
+          kind: kind,
+          airplaneMode: false,
+        );
+        await controller.check('example.com');
+        return controller;
+      }
+
+      test('Wi-Fi is offered mobile data', () async {
+        final c = await checkedOver(ConnectivityKind.wifi);
+        expect(c.crossMedium!.target, ConnectivityKind.mobile);
+        expect(c.crossMedium!.label, 'Test over mobile data');
+        expect(c.crossMedium!.hint, contains('Turn Wi-Fi off'));
+      });
+
+      test('mobile data is offered Wi-Fi', () async {
+        // The bug this replaced: someone already on mobile data was told to
+        // test over mobile data.
+        final c = await checkedOver(ConnectivityKind.mobile);
+        expect(c.crossMedium!.target, ConnectivityKind.wifi);
+        expect(c.crossMedium!.label, 'Test over Wi-Fi');
+        expect(c.crossMedium!.hint, contains('Turn Wi-Fi on'));
+      });
+
+      test('a wired link is offered neither', () async {
+        final c = await checkedOver(ConnectivityKind.ethernet);
+        expect(c.crossMedium, isNull);
+        expect(await c.retestOverOtherMedium(), isFalse);
+        expect(actions.calls, isEmpty);
+      });
+
+      test('the offer follows the user across a switch', () async {
+        await checkedOver(ConnectivityKind.wifi);
+        expect(controller.crossMedium!.target, ConnectivityKind.mobile);
+        // They act on it, turn Wi-Fi off and come back: the re-check runs over
+        // mobile data, and the offer must now point the other way instead of
+        // inviting the same switch again.
+        await controller.retestOverOtherMedium();
+        probe.connectivityResult = const ConnectivityStatus(
+          kind: ConnectivityKind.mobile,
+          airplaneMode: false,
+        );
+        await controller.runPendingRetest();
+        expect(controller.crossMedium!.target, ConnectivityKind.wifi);
+      });
+
+      test('and records it in the technical details', () async {
+        // The button and the log must agree about the link: the log is what
+        // the user pastes into a support ticket after comparing the two.
+        final c = await checkedOver(ConnectivityKind.mobile);
+        expect(c.report!.log, contains('- Tested over: mobile data'));
+        expect(c.crossMedium!.label, 'Test over Wi-Fi');
+      });
+
+      test('an unreadable link offers nothing rather than guessing', () async {
+        // The check itself still has to finish: the medium is a nicety, and a
+        // connectivity read that throws must not take the result down with it.
+        probe.throwOnConnectivity = true;
+        await controller.check('example.com');
+        expect(controller.status, UrlCheckStatus.done);
+        expect(controller.report, isNotNull);
+        expect(controller.crossMedium, isNull);
+        // And the log admits it rather than naming a medium it never read.
+        expect(controller.report!.log, contains('- Tested over: not known'));
+      });
     });
   });
 }

@@ -1,3 +1,4 @@
+import 'package:simply_internet/core/retest/cross_medium_retest.dart';
 import 'package:simply_internet/features/diagnostics/domain/entities/capability.dart';
 import 'package:simply_internet/features/diagnostics/domain/entities/link_quality.dart';
 import 'package:simply_internet/features/diagnostics/domain/entities/network_facts.dart';
@@ -85,7 +86,7 @@ class VerdictCatalog {
       solution: const Solution(
         message:
             'Restart your router: unplug it, wait 30 seconds, plug it '
-            'back in, and let it about 2-5 minutes to start up. Then run '
+            'back in, and let it take about 2-5 minutes to start up. Then run '
             'the test again.',
         actions: [
           SolutionAction(type: SolutionActionType.retry, label: 'Test again'),
@@ -122,7 +123,37 @@ class VerdictCatalog {
     );
   }
 
-  static ({Verdict verdict, Solution solution}) noInternetIsp() {
+  /// [medium] picks the wording: a mobile link has no router, DSL socket or
+  /// landline to point at, so that advice is replaced with carrier-side
+  /// steps instead of being shown regardless of what the user is actually on.
+  static ({Verdict verdict, Solution solution}) noInternetIsp({
+    required ConnectivityKind medium,
+  }) {
+    if (medium == ConnectivityKind.mobile) {
+      return (
+        verdict: const Verdict(
+          category: VerdictCategory.noInternetIsp,
+          title: 'Connected to mobile data, but no Internet',
+          detail:
+              'Your phone reaches the network at a basic level, but it has '
+              'no working path to the Internet. This points to a problem on '
+              "your carrier's network, not your phone.",
+        ),
+        solution: const Solution(
+          message:
+              '1. Toggle airplane mode on and off, or restart your phone, '
+              'to reconnect to a fresh tower.\n'
+              '2. If the test still fails after 2-5 minutes, contact your '
+              'mobile carrier — the outage is on their side.',
+          actions: [
+            SolutionAction(
+              type: SolutionActionType.retry,
+              label: 'Test again',
+            ),
+          ],
+        ),
+      );
+    }
     return (
       verdict: const Verdict(
         category: VerdictCategory.noInternetIsp,
@@ -198,7 +229,25 @@ class VerdictCatalog {
     );
   }
 
-  static ({Verdict verdict, Solution solution}) dnsProblem() {
+  /// [medium] picks the follow-up steps: a mobile link has no network
+  /// administrator or router to check, so those steps are replaced with
+  /// carrier-side ones instead of being shown regardless of what the user is
+  /// actually on.
+  static ({Verdict verdict, Solution solution}) dnsProblem({
+    required ConnectivityKind medium,
+  }) {
+    final steps = medium == ConnectivityKind.mobile
+        ? '2. If it still fails, toggle mobile data off and on, or restart '
+              'your phone, to get a fresh connection.\n'
+              '3. If it still fails, contact your mobile carrier — some '
+              'carriers run DNS resolvers that have outages of their own.'
+        : '2. If you are on a managed network (work, school, public '
+              'Wi-Fi), contact the network administrator to fix the DNS.\n'
+              '3. If you are on your own network, check your router '
+              'settings. It is good practice to configure the secondary '
+              'DNS to a public resolver as well (examples: 1.1.1.1, 4.4.4.4, '
+              '4.4.2.2, 8.8.8.8), in case the primary (your Internet '
+              'provider) fails.';
     return (
       verdict: const Verdict(
         category: VerdictCategory.dnsProblem,
@@ -208,17 +257,12 @@ class VerdictCatalog {
             'translated into addresses. This is a DNS issue and is usually '
             'easy to fix by switching to a public DNS resolver.',
       ),
-      solution: const Solution(
+      solution: Solution(
         message:
             '1. Switch your Private DNS to a reliable public resolver such '
             'as 1.1.1.1 (Cloudflare) or 8.8.8.8 (Google), then test again.\n'
-            '2. If you are on a managed network (work, school, public '
-            'Wi-Fi), contact the network administrator to fix the DNS.\n'
-            '3. If you are on your own network, check your router settings. '
-            'It is good practice to configure the secondary DNS to a public '
-            'resolver as well (examples: 1.1.1.1, 4.4.4.4, 4.4.2.2, 8.8.8.8), '
-            'in case the primary (your Internet provider) fails.',
-        actions: [
+            '$steps',
+        actions: const [
           SolutionAction(
             type: SolutionActionType.changeDns,
             label: 'Open Private DNS settings',
@@ -231,26 +275,33 @@ class VerdictCatalog {
     );
   }
 
+  /// [medium] picks the alternative offered: suggesting "switch to mobile
+  /// data" is circular when the user is already on mobile data, and a
+  /// carrier's port policy is not something a router firewall page fixes.
   static ({Verdict verdict, Solution solution}) portBlocked(
-    PortProbeResult blocked,
-  ) {
+    PortProbeResult blocked, {
+    required ConnectivityKind medium,
+  }) {
+    final advice = medium == ConnectivityKind.mobile
+        ? 'Your mobile carrier is likely blocking it by policy — try '
+              'Wi-Fi or a VPN instead, or contact your carrier if you need '
+              'this port open over cellular.'
+        : "If you're currently connected to a managed network (work, "
+              'school, public Wi-Fi), port ${blocked.port} is blocked by '
+              'policy — try mobile data or a VPN instead. On your own '
+              'network, check the firewall rules in your router settings.';
     return (
       verdict: Verdict(
         category: VerdictCategory.portBlocked,
         title: 'Port ${blocked.port} is blocked',
         detail:
-            'General Internet works, but ${blocked.service} traffic on '
+            'General Internet access works, but ${blocked.service} traffic on '
             'port ${blocked.port} is being blocked — likely by a firewall on '
             'this network. Some apps that rely on this port will not work.',
         detailArg: '${blocked.port}',
       ),
       solution: Solution(
-        message:
-            'If you connected now to a managed network (work, school, '
-            'public Wi-Fi), port ${blocked.port} is blocked by policy — '
-            'use a different network, or mobile data (not WiFi), or a '
-            'VPN. On your own network, check the firewall rules in your '
-            'router settings.',
+        message: advice,
         actions: const [
           SolutionAction(type: SolutionActionType.retry, label: 'Test again'),
         ],
@@ -258,27 +309,38 @@ class VerdictCatalog {
     );
   }
 
+  /// [medium] only swaps the noun used for who is at fault: a mobile link
+  /// has no router to exonerate, and "carrier" reads more naturally than
+  /// "ISP" for a cellular link.
   static ({Verdict verdict, Solution solution}) ispPathProblem(
-    IspPathResult path,
-  ) {
-    final hop = path.lastRespondingHop ?? 'a hop inside your provider';
+    IspPathResult path, {
+    required ConnectivityKind medium,
+  }) {
+    final isMobile = medium == ConnectivityKind.mobile;
+    final providerNoun = isMobile ? 'mobile carrier' : 'Internet provider';
+    final hop = path.lastRespondingHop ?? 'a hop inside your $providerNoun';
+    final deviceClause = isMobile
+        ? 'not on your phone'
+        : 'not on your device or router';
     return (
       verdict: Verdict(
         category: VerdictCategory.ispPathProblem,
-        title: 'Network path problem at your ISP',
+        title: isMobile
+            ? 'Network path problem at your carrier'
+            : 'Network path problem at your ISP',
         detail:
             'Your connection reaches the Internet but traffic stops along '
-            'the way, after $hop. The fault is on your provider or backbone '
-            'route, not on your device or router.',
+            'the way, after $hop. The fault is on your $providerNoun or '
+            'backbone route, $deviceClause.',
         detailArg: path.lastRespondingHop,
       ),
-      solution: const Solution(
+      solution: Solution(
         message:
-            'There is nothing to fix on your device and in your '
-            'network. Report the failing route to your Internet provider '
+            'There is nothing to fix on your device or in your '
+            'network. Report the failing route to your $providerNoun '
             '(mention that traceroute stops '
             'partway). It usually clears once they fix the route.',
-        actions: [
+        actions: const [
           SolutionAction(type: SolutionActionType.retry, label: 'Test again'),
         ],
       ),
@@ -305,7 +367,7 @@ class VerdictCatalog {
             title: 'Your $mediumName is good for $uses — and more',
             detail:
                 '${_measured(medium, speed)} If something still feels wrong, '
-                'it is most likely that one app or website, not your '
+                'it is most likely one app or website — not your '
                 'connection.',
           ),
           solution: null,
@@ -382,7 +444,7 @@ class VerdictCatalog {
         : 'Measured over ${mediumLabel(medium)}:\n$blame. ';
     final missing = assessment.uploadMeasured
         ? ''
-        : 'The upload test could not run, so upload was not judged. ';
+        : 'The upload test could not run, therefore not assessed. ';
     return '$figures$missing${_because(assessment, medium, quality)}'.trim();
   }
 
@@ -396,14 +458,14 @@ class VerdictCatalog {
       return 'Your router answers slowly or drops packets, which points at '
           'the Wi-Fi itself rather than your provider.';
     }
-    if (_saturated(quality)) {
+    if (medium == ConnectivityKind.wifi && _saturated(quality)) {
       return 'The connection slows down sharply while it is busy. Someone or '
           'something else on your network (a download, a backup, a TV) is '
           'using the line.';
     }
     if (assessment.throughputOnlyProblem) {
       return 'The connection speed is not sufficient. Either your Internet '
-          'plan is too low or your provider is throttling the line.';
+          'plan is too slow or your provider is throttling the line.';
     }
     return '';
   }
@@ -426,7 +488,7 @@ class VerdictCatalog {
     final steps = <String>[
       if (medium == ConnectivityKind.wifi && _gatewayWeak(quality))
         moveCloser
-      else if (_saturated(quality))
+      else if (medium == ConnectivityKind.wifi && _saturated(quality))
         pauseTheHog,
       if (assessment.voiceCallStillFits) dropTheCamera,
     ];
@@ -447,7 +509,7 @@ class VerdictCatalog {
           ),
           SolutionAction(
             type: SolutionActionType.retestOverMobile,
-            label: 'Test over mobile data',
+            label: kTestOverMobileLabel,
           ),
         ];
       case ConnectivityKind.mobile:
@@ -458,7 +520,7 @@ class VerdictCatalog {
           ),
           SolutionAction(
             type: SolutionActionType.retestOverWifi,
-            label: 'Test over Wi-Fi',
+            label: kTestOverWifiLabel,
           ),
         ];
       case ConnectivityKind.ethernet:

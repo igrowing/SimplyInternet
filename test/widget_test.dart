@@ -15,6 +15,7 @@ import 'fakes.dart';
 UrlCheckController _urlController() => UrlCheckController(
   checkUrl: CheckUrl(FakeUrlInspector()),
   deviceActions: FakeDeviceActions(),
+  networkProbe: FakeNetworkProbe(),
 );
 
 void main() {
@@ -60,9 +61,9 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('Internet does not work?'), findsOneWidget);
-    expect(find.text('Find the problem and give solution'), findsOneWidget);
-    expect(find.text('v.1.0.2'), findsOneWidget);
+    expect(find.textContaining('Internet not working?'), findsOneWidget);
+    expect(find.text('Find the problem and give a solution'), findsOneWidget);
+    expect(find.text('v1.0.2'), findsOneWidget);
   });
 
   testWidgets('theme toggle switches to dark then light', (tester) async {
@@ -110,10 +111,7 @@ void main() {
 
   testWidgets('URL check group runs and shows a result', (tester) async {
     final prefs = await SharedPreferences.getInstance();
-    final urlController = UrlCheckController(
-      checkUrl: CheckUrl(FakeUrlInspector()),
-      deviceActions: FakeDeviceActions(),
-    );
+    final urlController = _urlController();
 
     await tester.pumpWidget(
       MaterialApp(
@@ -139,7 +137,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      find.textContaining('Not working particular website'),
+      find.textContaining('A particular website or service not working'),
       findsOneWidget,
     );
     await tester.enterText(find.byType(TextField), 'example.com');

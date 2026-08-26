@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:simply_internet/features/diagnostics/domain/entities/network_facts.dart';
 import 'package:simply_internet/features/diagnostics/presentation/widgets/technical_details.dart';
 import 'package:simply_internet/features/urlcheck/domain/entities/url_check_report.dart';
 import 'package:simply_internet/features/urlcheck/presentation/controllers/url_check_controller.dart';
@@ -21,6 +22,7 @@ class UrlCheckResultView extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final color = _severityColor(context, report.worst);
+    final crossMedium = controller.crossMedium;
 
     return ListView(
       padding: const EdgeInsets.all(20),
@@ -78,12 +80,20 @@ class UrlCheckResultView extends StatelessWidget {
                   icon: const Icon(Icons.open_in_browser),
                   label: const Text('Open in browser'),
                 ),
-                const SizedBox(height: 8),
-                FilledButton.tonalIcon(
-                  onPressed: () => _retestOverMobile(context),
-                  icon: const Icon(Icons.signal_cellular_alt),
-                  label: const Text('Test over mobile data'),
-                ),
+                // Offered only when there is another medium to compare
+                // against, and always naming the one the user is not on.
+                if (crossMedium != null) ...[
+                  const SizedBox(height: 8),
+                  FilledButton.tonalIcon(
+                    onPressed: () => _retestOverOtherMedium(context),
+                    icon: Icon(
+                      crossMedium.target == ConnectivityKind.mobile
+                          ? Icons.signal_cellular_alt
+                          : Icons.wifi,
+                    ),
+                    label: Text(crossMedium.label),
+                  ),
+                ],
               ],
             ),
           ),
@@ -115,24 +125,20 @@ class UrlCheckResultView extends StatelessWidget {
   }
 
   /// Hands the user to the Wi-Fi panel; the same address is checked again by
-  /// itself once they return, so the two mediums can be compared.
-  Future<void> _retestOverMobile(BuildContext context) async {
+  /// itself once they return, so the two mediums can be compared. The hint
+  /// says which way to move the switch, which depends on where they are now.
+  Future<void> _retestOverOtherMedium(BuildContext context) async {
     final messenger = ScaffoldMessenger.of(context);
+    final hint = controller.crossMedium?.hint;
     try {
-      final ok = await controller.retestOverMobile();
-      if (!ok) {
+      final ok = await controller.retestOverOtherMedium();
+      if (!ok || hint == null) {
         messenger.showSnackBar(
           const SnackBar(content: Text('Nothing to test again.')),
         );
         return;
       }
-      messenger.showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Turn Wi-Fi off, then come back — the check runs again by itself.',
-          ),
-        ),
-      );
+      messenger.showSnackBar(SnackBar(content: Text(hint)));
     } on Exception catch (e) {
       messenger.showSnackBar(
         SnackBar(content: Text('Could not open the settings: $e')),
