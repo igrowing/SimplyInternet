@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:simply_internet/core/theme/theme_controller.dart';
 import 'package:simply_internet/features/settings/presentation/controllers/settings_controller.dart';
 import 'package:simply_internet/features/settings/presentation/pages/settings_page.dart';
+import 'package:simply_internet/l10n/app_localizations.dart';
 
 import 'fakes.dart';
 
@@ -27,6 +28,9 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+        locale: const Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: MultiProvider(
           providers: [
             ChangeNotifierProvider<ThemeController>.value(

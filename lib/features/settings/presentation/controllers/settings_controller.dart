@@ -4,10 +4,9 @@ import 'package:simply_internet/features/diagnostics/domain/repositories/device_
 import 'package:simply_internet/features/settings/domain/entities/app_font_scale.dart';
 import 'package:simply_internet/features/settings/domain/entities/app_language.dart';
 
-/// Holds every persisted Settings-screen preference: language (a stub for
-/// now — see [AppLanguage]) and font scale. Theme lives in its own
-/// `ThemeController` since it predates this feature and is read by
-/// `MaterialApp` directly.
+/// Holds every persisted Settings-screen preference: language (see
+/// [AppLanguage]) and font scale. Theme lives in its own `ThemeController`
+/// since it predates this feature and is read by `MaterialApp` directly.
 class SettingsController extends ChangeNotifier {
   SettingsController({
     required SharedPreferences prefs,
@@ -42,8 +41,7 @@ class SettingsController extends ChangeNotifier {
   AppLanguage get language => _language;
   AppFontScale get fontScale => _fontScale;
 
-  /// Persists the choice for a future release; the app itself still reads
-  /// in English until real translations are wired in.
+  /// Persists the choice and rebuilds the app in the new language.
   Future<void> setLanguage(AppLanguage value) async {
     if (value == _language) return;
     _language = value;

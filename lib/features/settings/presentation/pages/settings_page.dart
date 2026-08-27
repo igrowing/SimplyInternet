@@ -8,6 +8,7 @@ import 'package:simply_internet/core/theme/theme_controller.dart';
 import 'package:simply_internet/features/settings/domain/entities/app_font_scale.dart';
 import 'package:simply_internet/features/settings/domain/entities/app_language.dart';
 import 'package:simply_internet/features/settings/presentation/controllers/settings_controller.dart';
+import 'package:simply_internet/l10n/app_localizations.dart';
 
 /// Every persisted app preference, reached from the gear icon in the home
 /// screen's AppBar. The app has no other settings surface, so language,
@@ -18,7 +19,7 @@ class SettingsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Settings')),
+      appBar: AppBar(title: Text(AppLocalizations.of(context).settingsTitle)),
       body: Consumer2<ThemeController, SettingsController>(
         builder: (context, theme, settings, _) {
           return ListView(
@@ -70,7 +71,7 @@ class _LanguageTile extends StatelessWidget {
       children: [
         ListTile(
           leading: _flag(current.countryCode),
-          title: const Text('Language'),
+          title: Text(AppLocalizations.of(context).settingsLanguage),
           subtitle: Text(current.endonym),
           trailing: const Icon(Icons.chevron_right),
           onTap: () => _pickLanguage(context),
@@ -78,8 +79,7 @@ class _LanguageTile extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
           child: Text(
-            'Translations are coming soon — the app still reads in '
-            'English either way for now.',
+            AppLocalizations.of(context).settingsLanguageCaption,
             style: subtitleStyle,
           ),
         ),
@@ -129,29 +129,33 @@ class _ThemeModeSetting extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Theme', style: Theme.of(context).textTheme.bodyLarge),
+          Text(
+            l10n.settingsTheme,
+            style: Theme.of(context).textTheme.bodyLarge,
+          ),
           const SizedBox(height: 12),
           SegmentedButton<ThemeMode>(
-            segments: const [
+            segments: [
               ButtonSegment(
                 value: ThemeMode.system,
-                label: Text('System'),
-                icon: Icon(Icons.brightness_auto_outlined),
+                label: Text(l10n.settingsThemeSystem),
+                icon: const Icon(Icons.brightness_auto_outlined),
               ),
               ButtonSegment(
                 value: ThemeMode.light,
-                label: Text('Light'),
-                icon: Icon(Icons.light_mode_outlined),
+                label: Text(l10n.settingsThemeLight),
+                icon: const Icon(Icons.light_mode_outlined),
               ),
               ButtonSegment(
                 value: ThemeMode.dark,
-                label: Text('Dark'),
-                icon: Icon(Icons.dark_mode_outlined),
+                label: Text(l10n.settingsThemeDark),
+                icon: const Icon(Icons.dark_mode_outlined),
               ),
             ],
             selected: {value},
@@ -173,29 +177,33 @@ class _FontScaleSetting extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Font size', style: Theme.of(context).textTheme.bodyLarge),
+          Text(
+            l10n.settingsFontSize,
+            style: Theme.of(context).textTheme.bodyLarge,
+          ),
           const SizedBox(height: 12),
           SegmentedButton<AppFontScale>(
-            segments: const [
+            segments: [
               ButtonSegment(
                 value: AppFontScale.small,
-                label: Text('Small'),
-                icon: Icon(Icons.text_decrease_outlined),
+                label: Text(l10n.settingsFontSmall),
+                icon: const Icon(Icons.text_decrease_outlined),
               ),
               ButtonSegment(
                 value: AppFontScale.normal,
-                label: Text('Normal'),
-                icon: Icon(Icons.text_fields),
+                label: Text(l10n.settingsFontNormal),
+                icon: const Icon(Icons.text_fields),
               ),
               ButtonSegment(
                 value: AppFontScale.large,
-                label: Text('Large'),
-                icon: Icon(Icons.text_increase_outlined),
+                label: Text(l10n.settingsFontLarge),
+                icon: const Icon(Icons.text_increase_outlined),
               ),
             ],
             selected: {value},
@@ -247,14 +255,14 @@ class _AboutFooterState extends State<_AboutFooter> {
           TextButton.icon(
             onPressed: settings.checkForUpdate,
             icon: const Icon(Icons.system_update_outlined),
-            label: const Text('Check for update'),
+            label: Text(AppLocalizations.of(context).settingsCheckForUpdate),
           ),
           TextButton.icon(
             onPressed: settings.openCoffeePage,
             icon: const Icon(Icons.coffee, color: Colors.amber),
-            label: const Text(
-              'Buy me a coffee',
-              style: TextStyle(color: Colors.amber),
+            label: Text(
+              AppLocalizations.of(context).settingsBuyMeACoffee,
+              style: const TextStyle(color: Colors.amber),
             ),
           ),
         ],

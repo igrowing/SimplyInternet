@@ -10,6 +10,7 @@ import 'package:simply_internet/features/diagnostics/presentation/pages/home_pag
 import 'package:simply_internet/features/settings/presentation/controllers/settings_controller.dart';
 import 'package:simply_internet/features/urlcheck/domain/usecases/check_url.dart';
 import 'package:simply_internet/features/urlcheck/presentation/controllers/url_check_controller.dart';
+import 'package:simply_internet/l10n/app_localizations.dart';
 
 import 'fakes.dart';
 
@@ -17,6 +18,15 @@ UrlCheckController _urlController() => UrlCheckController(
   checkUrl: CheckUrl(FakeUrlInspector()),
   deviceActions: FakeDeviceActions(),
   networkProbe: FakeNetworkProbe(),
+);
+
+/// Wraps [home] with the localization delegates `AppLocalizations.of`
+/// requires, pinned to English so assertions on literal text stay stable.
+Widget _wrapHome(Widget home) => MaterialApp(
+  locale: const Locale('en'),
+  localizationsDelegates: AppLocalizations.localizationsDelegates,
+  supportedLocales: AppLocalizations.supportedLocales,
+  home: home,
 );
 
 void main() {
@@ -43,8 +53,8 @@ void main() {
     );
 
     await tester.pumpWidget(
-      MaterialApp(
-        home: MultiProvider(
+      _wrapHome(
+        MultiProvider(
           providers: [
             ChangeNotifierProvider<ThemeController>.value(
               value: ThemeController(prefs),
@@ -94,7 +104,12 @@ void main() {
             value: _urlController(),
           ),
         ],
-        child: const MaterialApp(home: HomePage()),
+        child: const MaterialApp(
+          locale: Locale('en'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: HomePage(),
+        ),
       ),
     );
     await tester.pumpAndSettle();
@@ -113,8 +128,8 @@ void main() {
     final urlController = _urlController();
 
     await tester.pumpWidget(
-      MaterialApp(
-        home: MultiProvider(
+      _wrapHome(
+        MultiProvider(
           providers: [
             ChangeNotifierProvider<ThemeController>.value(
               value: ThemeController(prefs),

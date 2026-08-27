@@ -7,6 +7,7 @@ import 'package:simply_internet/features/diagnostics/presentation/controllers/di
 import 'package:simply_internet/features/diagnostics/presentation/pages/home_page.dart';
 import 'package:simply_internet/features/settings/presentation/controllers/settings_controller.dart';
 import 'package:simply_internet/features/urlcheck/presentation/controllers/url_check_controller.dart';
+import 'package:simply_internet/l10n/app_localizations.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -34,6 +35,9 @@ class SimplyInternetApp extends StatelessWidget {
           return MaterialApp(
             title: 'SimplyInternet',
             debugShowCheckedModeBanner: false,
+            locale: settings.language.locale,
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
             themeMode: theme.mode,
             theme: ThemeData(colorSchemeSeed: Colors.blue, useMaterial3: true),
             darkTheme: ThemeData(

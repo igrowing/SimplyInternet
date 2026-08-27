@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:simply_internet/l10n/app_localizations.dart';
 
 /// The expandable "Technical details" section shared by both features.
 ///
@@ -16,8 +17,9 @@ class TechnicalDetails extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (log.isEmpty) return const SizedBox.shrink();
+    final l10n = AppLocalizations.of(context);
     return ExpansionTile(
-      title: const Text('Technical details'),
+      title: Text(l10n.techDetailsTitle),
       childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
       children: [
         Align(
@@ -25,7 +27,7 @@ class TechnicalDetails extends StatelessWidget {
           child: TextButton.icon(
             onPressed: () => _copy(context),
             icon: const Icon(Icons.copy, size: 16),
-            label: const Text('Copy'),
+            label: Text(l10n.techDetailsCopy),
           ),
         ),
         for (final line in log) _LogLine(line: line),
@@ -35,10 +37,9 @@ class TechnicalDetails extends StatelessWidget {
 
   Future<void> _copy(BuildContext context) async {
     final messenger = ScaffoldMessenger.of(context);
+    final copied = AppLocalizations.of(context).techDetailsCopied;
     await Clipboard.setData(ClipboardData(text: log.join('\n')));
-    messenger.showSnackBar(
-      const SnackBar(content: Text('Technical details copied.')),
-    );
+    messenger.showSnackBar(SnackBar(content: Text(copied)));
   }
 }
 

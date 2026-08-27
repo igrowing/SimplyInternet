@@ -3,17 +3,18 @@ import 'dart:ui' show Locale;
 import 'package:equatable/equatable.dart';
 import 'package:flutter/foundation.dart';
 
-/// A language the app can eventually be displayed in.
+/// A language the app can be displayed in.
 ///
 /// [endonym] is the language's own name for itself, shown regardless of the
 /// UI's current language, so a user can recognize their own language in the
 /// list even if they can't read anything else on screen. [countryCode]
 /// selects the flag shown next to it — a flag stands in for a language here,
-/// not a country, so a couple of entries intentionally share one.
+/// not a country, so a couple of entries intentionally share one. The
+/// Traditional Chinese entry uses Hong Kong's flag rather than Taiwan's,
+/// since the script (not a specific territory) is what's being offered.
 ///
-/// The picker built around this list is a visual stub: choosing a language
-/// persists the choice but does not yet change the app's language, since no
-/// translations exist yet.
+/// Every entry here is a full translation: the app chrome, the diagnosis and
+/// URL-check verdicts, and their technical logs all follow the chosen language.
 @immutable
 class AppLanguage extends Equatable {
   const AppLanguage({
@@ -47,7 +48,6 @@ class AppLanguage extends Equatable {
     AppLanguage(locale: Locale('ru'), countryCode: 'RU', endonym: 'Русский'),
     AppLanguage(locale: Locale('th'), countryCode: 'TH', endonym: 'ไทย'),
     AppLanguage(locale: Locale('uk'), countryCode: 'UA', endonym: 'Українська'),
-    AppLanguage(locale: Locale('zh'), countryCode: 'CN', endonym: '中文'),
     AppLanguage(
       locale: Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hans'),
       countryCode: 'CN',
@@ -55,7 +55,7 @@ class AppLanguage extends Equatable {
     ),
     AppLanguage(
       locale: Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant'),
-      countryCode: 'TW',
+      countryCode: 'HK',
       endonym: '繁體中文',
     ),
   ];

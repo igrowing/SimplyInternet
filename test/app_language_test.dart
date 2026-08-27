@@ -36,7 +36,6 @@ void main() {
         'ru',
         'th',
         'uk',
-        'zh',
         'zh_Hans',
         'zh_Hant',
       ]);

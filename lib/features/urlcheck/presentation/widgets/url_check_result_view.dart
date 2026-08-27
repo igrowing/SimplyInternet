@@ -3,6 +3,7 @@ import 'package:simply_internet/features/diagnostics/domain/entities/network_fac
 import 'package:simply_internet/features/diagnostics/presentation/widgets/technical_details.dart';
 import 'package:simply_internet/features/urlcheck/domain/entities/url_check_report.dart';
 import 'package:simply_internet/features/urlcheck/presentation/controllers/url_check_controller.dart';
+import 'package:simply_internet/l10n/app_localizations.dart';
 
 /// Renders a finished [UrlCheckReport]: a headline verdict, one card per
 /// finding (colour-coded by severity), then a single "What to do" card holding
@@ -21,6 +22,7 @@ class UrlCheckResultView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
     final color = _severityColor(context, report.worst);
     final crossMedium = controller.crossMedium;
 
@@ -65,7 +67,7 @@ class UrlCheckResultView extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'What to do',
+                  l10n.resultWhatToDo,
                   style: theme.textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
@@ -78,7 +80,7 @@ class UrlCheckResultView extends StatelessWidget {
                 FilledButton.tonalIcon(
                   onPressed: () => _open(context),
                   icon: const Icon(Icons.open_in_browser),
-                  label: const Text('Open in browser'),
+                  label: Text(l10n.urlOpenInBrowser),
                 ),
                 // Offered only when there is another medium to compare
                 // against, and always naming the one the user is not on.
@@ -91,7 +93,7 @@ class UrlCheckResultView extends StatelessWidget {
                           ? Icons.signal_cellular_alt
                           : Icons.wifi,
                     ),
-                    label: Text(crossMedium.label),
+                    label: Text(_crossMediumLabel(l10n, crossMedium.target)),
                   ),
                 ],
               ],
@@ -102,7 +104,7 @@ class UrlCheckResultView extends StatelessWidget {
         OutlinedButton.icon(
           onPressed: controller.reset,
           icon: const Icon(Icons.arrow_back),
-          label: const Text('Check another'),
+          label: Text(l10n.urlCheckAnother),
         ),
         const SizedBox(height: 8),
         TechnicalDetails(log: report.log),
@@ -112,15 +114,18 @@ class UrlCheckResultView extends StatelessWidget {
 
   Future<void> _open(BuildContext context) async {
     final messenger = ScaffoldMessenger.of(context);
+    final l10n = AppLocalizations.of(context);
     try {
       final ok = await controller.openInBrowser();
       if (!ok) {
         messenger.showSnackBar(
-          const SnackBar(content: Text('Could not open the browser.')),
+          SnackBar(content: Text(l10n.urlCouldNotOpenBrowser)),
         );
       }
     } on Exception catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Could not open: $e')));
+      messenger.showSnackBar(
+        SnackBar(content: Text(l10n.urlCouldNotOpen('$e'))),
+      );
     }
   }
 
@@ -129,19 +134,22 @@ class UrlCheckResultView extends StatelessWidget {
   /// says which way to move the switch, which depends on where they are now.
   Future<void> _retestOverOtherMedium(BuildContext context) async {
     final messenger = ScaffoldMessenger.of(context);
-    final hint = controller.crossMedium?.hint;
+    final l10n = AppLocalizations.of(context);
+    final target = controller.crossMedium?.target;
     try {
       final ok = await controller.retestOverOtherMedium();
-      if (!ok || hint == null) {
+      if (!ok || target == null) {
         messenger.showSnackBar(
-          const SnackBar(content: Text('Nothing to test again.')),
+          SnackBar(content: Text(l10n.urlNothingToTestAgain)),
         );
         return;
       }
-      messenger.showSnackBar(SnackBar(content: Text(hint)));
+      messenger.showSnackBar(
+        SnackBar(content: Text(_crossMediumHint(l10n, target))),
+      );
     } on Exception catch (e) {
       messenger.showSnackBar(
-        SnackBar(content: Text('Could not open the settings: $e')),
+        SnackBar(content: Text(l10n.urlCouldNotOpenSettings('$e'))),
       );
     }
   }
@@ -159,6 +167,19 @@ class UrlCheckResultView extends StatelessWidget {
         return scheme.error;
     }
   }
+
+  /// `CrossMediumOption.label` is fixed English (an engine-level constant
+  /// shared with `verdict_catalog.dart`'s `SolutionAction`s), so this screen
+  /// resolves its own localized wording from just the target medium instead.
+  String _crossMediumLabel(AppLocalizations l10n, ConnectivityKind target) =>
+      target == ConnectivityKind.mobile
+      ? l10n.crossMediumTestOverMobile
+      : l10n.crossMediumTestOverWifi;
+
+  String _crossMediumHint(AppLocalizations l10n, ConnectivityKind target) =>
+      target == ConnectivityKind.mobile
+      ? l10n.crossMediumHintMobile
+      : l10n.crossMediumHintWifi;
 
   IconData _severityIcon(UrlSeverity severity) {
     switch (severity) {

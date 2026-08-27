@@ -4,6 +4,7 @@ import 'package:simply_internet/features/diagnostics/domain/entities/diagnosis_r
 import 'package:simply_internet/features/diagnostics/domain/entities/solution.dart';
 import 'package:simply_internet/features/diagnostics/domain/repositories/device_actions.dart';
 import 'package:simply_internet/features/diagnostics/domain/usecases/run_diagnosis.dart';
+import 'package:simply_internet/l10n/app_localizations.dart';
 
 /// Lifecycle of the single-button diagnosis flow.
 enum DiagnosisStatus { idle, running, done, error }
@@ -39,9 +40,17 @@ class DiagnosisController extends ChangeNotifier {
 
   bool get retestPending => _retest.pending;
 
+  /// The localizations of the last [run], reused when the diagnosis re-runs
+  /// itself on resume (a cross-medium retest) or via the "Test again" action,
+  /// where no `BuildContext` is at hand.
+  AppLocalizations? _l10n;
+
   /// Run the full diagnosis. Safe to call repeatedly (ignored while running).
-  Future<void> run() async {
+  /// [l10n] localizes the verdict and technical log; when omitted the last one
+  /// passed is reused, and failing that the engine falls back to English.
+  Future<void> run({AppLocalizations? l10n}) async {
     if (_status == DiagnosisStatus.running) return;
+    _l10n = l10n ?? _l10n;
     _status = DiagnosisStatus.running;
     _report = null;
     _error = null;
@@ -53,6 +62,7 @@ class DiagnosisController extends ChangeNotifier {
     await _deviceActions.keepScreenOn(on: true);
     try {
       final report = await _runDiagnosis.call(
+        l10n: _l10n,
         onPhase: (p) {
           _phase = p;
           notifyListeners();

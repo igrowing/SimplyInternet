@@ -3,6 +3,8 @@ import 'package:simply_internet/features/diagnostics/domain/entities/check_endpo
 import 'package:simply_internet/features/diagnostics/domain/entities/link_quality.dart';
 import 'package:simply_internet/features/diagnostics/domain/entities/network_facts.dart';
 import 'package:simply_internet/features/diagnostics/domain/entities/use_case_requirements.dart';
+import 'package:simply_internet/l10n/app_localizations.dart';
+import 'package:simply_internet/l10n/app_localizations_en.dart';
 
 /// Turns raw measurements into "what can this connection actually do".
 ///
@@ -15,7 +17,9 @@ class AssessCapability {
   CapabilityAssessment call({
     required SpeedResult speed,
     required LinkQuality quality,
+    AppLocalizations? l10n,
   }) {
+    final strings = l10n ?? AppLocalizationsEn();
     final down = speed.ok ? speed.downloadMbps : null;
     final up = speed.uploadMbps;
     final rtt = quality.internet.avgMs;
@@ -28,6 +32,7 @@ class AssessCapability {
           requirement: requirement,
           shortfalls: _shortfalls(
             requirement,
+            strings,
             down: down,
             up: up,
             rtt: rtt,
@@ -57,7 +62,8 @@ class AssessCapability {
   }
 
   List<Shortfall> _shortfalls(
-    UseCaseRequirement r, {
+    UseCaseRequirement r,
+    AppLocalizations l10n, {
     required double? down,
     required double? up,
     required double? rtt,
@@ -70,7 +76,7 @@ class AssessCapability {
       out.add(
         Shortfall(
           metric: 'download',
-          text: 'download ${_mbps(down)} Mbps',
+          text: l10n.shortfallDownload(_mbps(down)),
           ratio: r.downMbps / _atLeastTiny(down),
         ),
       );
@@ -79,7 +85,7 @@ class AssessCapability {
       out.add(
         Shortfall(
           metric: 'upload',
-          text: 'upload ${_mbps(up)} Mbps',
+          text: l10n.shortfallUpload(_mbps(up)),
           ratio: r.upMbps / _atLeastTiny(up),
         ),
       );
@@ -89,7 +95,7 @@ class AssessCapability {
       out.add(
         Shortfall(
           metric: 'latency',
-          text: 'latency ${rtt.round()} ms',
+          text: l10n.shortfallLatency('${rtt.round()}'),
           ratio: rtt / maxRtt,
         ),
       );
@@ -99,7 +105,7 @@ class AssessCapability {
       out.add(
         Shortfall(
           metric: 'jitter',
-          text: 'jitter ${jitter.round()} ms',
+          text: l10n.shortfallJitter('${jitter.round()}'),
           ratio: jitter / maxJitter,
         ),
       );
@@ -109,7 +115,7 @@ class AssessCapability {
       out.add(
         Shortfall(
           metric: 'loss',
-          text: 'packet loss ${loss.round()}%',
+          text: l10n.shortfallLoss('${loss.round()}'),
           ratio: loss / maxLoss,
         ),
       );

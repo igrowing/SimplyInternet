@@ -7,6 +7,7 @@ import 'package:simply_internet/features/diagnostics/domain/usecases/run_diagnos
 import 'package:simply_internet/features/diagnostics/presentation/controllers/diagnosis_controller.dart';
 import 'package:simply_internet/features/diagnostics/presentation/widgets/result_view.dart';
 import 'package:simply_internet/features/settings/domain/entities/app_font_scale.dart';
+import 'package:simply_internet/l10n/app_localizations.dart';
 
 import 'fakes.dart';
 
@@ -33,6 +34,9 @@ Widget _wrapAt(double scale) {
     deviceActions: FakeDeviceActions(),
   );
   return MaterialApp(
+    locale: const Locale('en'),
+    localizationsDelegates: AppLocalizations.localizationsDelegates,
+    supportedLocales: AppLocalizations.supportedLocales,
     builder: (context, child) => MediaQuery(
       data: MediaQuery.of(
         context,
