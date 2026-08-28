@@ -74,7 +74,8 @@ void main() {
 
     expect(find.textContaining('Internet not working?'), findsOneWidget);
     expect(find.text('Find the problem and give a solution'), findsOneWidget);
-    expect(find.text('v1.0.2'), findsOneWidget);
+    // The version lives on the Settings screen, not the home AppBar.
+    expect(find.text('v1.0.2'), findsNothing);
   });
 
   testWidgets('settings gear opens the Settings screen', (tester) async {
@@ -154,14 +155,21 @@ void main() {
       find.textContaining('A particular website or service not working'),
       findsOneWidget,
     );
+    // The settings gear is offered on the idle screen …
+    expect(find.byIcon(Icons.settings_outlined), findsOneWidget);
+
     await tester.enterText(find.byType(TextField), 'example.com');
     await tester.tap(find.text('Check it'));
     await tester.pumpAndSettle();
 
     expect(find.text('The website works'), findsOneWidget);
+    // … but not on the result screen, where changing the language would
+    // rebuild a report whose text was frozen in the old one.
+    expect(find.byIcon(Icons.settings_outlined), findsNothing);
 
     await tester.tap(find.text('Check another'));
     await tester.pumpAndSettle();
     expect(find.text('Check it'), findsOneWidget);
+    expect(find.byIcon(Icons.settings_outlined), findsOneWidget);
   });
 }

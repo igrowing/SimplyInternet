@@ -76,7 +76,11 @@ class UrlCheckController extends ChangeNotifier {
     _medium = await _currentMedium();
 
     try {
-      _report = await _checkUrl.call(rawUrl, medium: _mediumLabel());
+      _report = await _checkUrl.call(
+        rawUrl,
+        medium: _mediumLabel(),
+        l10n: _l10n,
+      );
       _status = UrlCheckStatus.done;
     } on InvalidUrlException catch (e) {
       _error = e.message;

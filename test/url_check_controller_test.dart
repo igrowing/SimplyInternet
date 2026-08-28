@@ -5,6 +5,7 @@ import 'package:simply_internet/features/diagnostics/domain/entities/network_fac
 import 'package:simply_internet/features/urlcheck/domain/entities/url_check_report.dart';
 import 'package:simply_internet/features/urlcheck/domain/usecases/check_url.dart';
 import 'package:simply_internet/features/urlcheck/presentation/controllers/url_check_controller.dart';
+import 'package:simply_internet/l10n/app_localizations.dart';
 
 import 'fakes.dart';
 
@@ -14,8 +15,11 @@ class _FailingCheckUrl extends CheckUrl {
   _FailingCheckUrl() : super(FakeUrlInspector());
 
   @override
-  Future<UrlCheckReport> call(String rawUrl, {String? medium}) async =>
-      throw Exception('the inspector fell over');
+  Future<UrlCheckReport> call(
+    String rawUrl, {
+    String? medium,
+    AppLocalizations? l10n,
+  }) async => throw Exception('the inspector fell over');
 }
 
 /// A use-case that never finishes, so the running state can be observed while
@@ -26,7 +30,11 @@ class _HangingCheckUrl extends CheckUrl {
   int calls = 0;
 
   @override
-  Future<UrlCheckReport> call(String rawUrl, {String? medium}) {
+  Future<UrlCheckReport> call(
+    String rawUrl, {
+    String? medium,
+    AppLocalizations? l10n,
+  }) {
     calls++;
     return Completer<UrlCheckReport>().future;
   }

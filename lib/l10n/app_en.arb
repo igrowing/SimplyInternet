@@ -1,6 +1,5 @@
 {
   "@@locale": "en",
-
   "homeTitle": "Internet not working?\nUnstable? Works partially?",
   "@homeTitle": {
     "description": "Home screen headline above the diagnose button."
@@ -49,7 +48,6 @@
   "@commonBack": {
     "description": "Generic \"go back\" button label, reused by the diagnosis result screen's back button and the URL-check error screen's retry button."
   },
-
   "settingsTitle": "Settings",
   "@settingsTitle": {
     "description": "Settings screen's AppBar title."
@@ -57,10 +55,6 @@
   "settingsLanguage": "Language",
   "@settingsLanguage": {
     "description": "Settings: label for the language-picker row."
-  },
-  "settingsLanguageCaption": "The whole app is translated, including the diagnosis results and their technical details.",
-  "@settingsLanguageCaption": {
-    "description": "Small caption under the language picker describing translation coverage."
   },
   "settingsTheme": "Theme",
   "@settingsTheme": {
@@ -102,7 +96,6 @@
   "@settingsBuyMeACoffee": {
     "description": "Settings: link to the developer's donation page."
   },
-
   "resultWhatToDo": "What to do",
   "@resultWhatToDo": {
     "description": "Heading above the suggested-actions card on a result screen."
@@ -147,7 +140,6 @@
   "@resultUploadNotMeasured": {
     "description": "Note shown in the capability list when the upload test did not run."
   },
-
   "techDetailsTitle": "Technical details",
   "@techDetailsTitle": {
     "description": "Title of the collapsible technical-log section, shared by both result screens."
@@ -160,7 +152,6 @@
   "@techDetailsCopied": {
     "description": "Snackbar confirming the technical log was copied."
   },
-
   "urlOpenInBrowser": "Open in browser",
   "@urlOpenInBrowser": {
     "description": "URL-check result: button that opens the checked URL in the browser."
@@ -197,7 +188,6 @@
       }
     }
   },
-
   "crossMediumTestOverMobile": "Test over mobile data",
   "@crossMediumTestOverMobile": {
     "description": "Button offering to re-run the URL check over mobile data instead of Wi-Fi."
@@ -214,7 +204,6 @@
   "@crossMediumHintWifi": {
     "description": "Snackbar hint after tapping \"Test over Wi-Fi\"."
   },
-
   "verdictFlightModeTitle": "You are in flight mode",
   "@verdictFlightModeTitle": {
     "description": "Diagnosis verdict headline: the device is in flight mode."
@@ -227,7 +216,6 @@
   "@solutionFlightModeMessage": {
     "description": "What-to-do text for the flight-mode verdict."
   },
-
   "verdictNotConnectedTitle": "Not connected to any network",
   "@verdictNotConnectedTitle": {
     "description": "Diagnosis verdict headline: neither Wi-Fi nor mobile data is on."
@@ -240,7 +228,6 @@
   "@solutionNotConnectedMessage": {
     "description": "What-to-do text when no link is available."
   },
-
   "verdictRouterNotRespondingTitle": "Router is not responding",
   "@verdictRouterNotRespondingTitle": {
     "description": "Diagnosis verdict headline: the local router/gateway does not answer."
@@ -249,14 +236,18 @@
   "@verdictRouterNotRespondingDetail": {
     "description": "Diagnosis verdict body for a dead router. {where} is either \"your router\" or \"your router (10.0.0.1)\".",
     "placeholders": {
-      "where": { "type": "String" }
+      "where": {
+        "type": "String"
+      }
     }
   },
   "verdictRouterWhereNamed": "your router ({gateway})",
   "@verdictRouterWhereNamed": {
     "description": "The {where} value when the gateway IP is known.",
     "placeholders": {
-      "gateway": { "type": "String" }
+      "gateway": {
+        "type": "String"
+      }
     }
   },
   "verdictRouterWhereUnnamed": "your router",
@@ -267,7 +258,6 @@
   "@solutionRouterNotRespondingMessage": {
     "description": "What-to-do text for a dead router."
   },
-
   "verdictCaptivePortalTitle": "Sign-in required (captive portal)",
   "@verdictCaptivePortalTitle": {
     "description": "Diagnosis verdict headline: a captive portal is intercepting traffic."
@@ -280,7 +270,6 @@
   "@solutionCaptivePortalMessage": {
     "description": "What-to-do text for a captive portal."
   },
-
   "verdictNoInternetMobileTitle": "Connected to mobile data, but no Internet",
   "@verdictNoInternetMobileTitle": {
     "description": "Diagnosis verdict headline: cellular link up but no Internet path."
@@ -293,7 +282,6 @@
   "@solutionNoInternetMobileMessage": {
     "description": "What-to-do text: no Internet on a cellular link."
   },
-
   "verdictNoInternetIspTitle": "Connected to router, but no Internet",
   "@verdictNoInternetIspTitle": {
     "description": "Diagnosis verdict headline: router works but the WAN/ISP link is down."
@@ -306,7 +294,6 @@
   "@solutionNoInternetIspMessage": {
     "description": "What-to-do text: router up but ISP link down."
   },
-
   "verdictMobileNoDataTitle": "Mobile data is connected but not working",
   "@verdictMobileNoDataTitle": {
     "description": "Diagnosis verdict headline: on the cellular network but no data passes."
@@ -319,17 +306,20 @@
   "@solutionMobileNoDataMessage": {
     "description": "What-to-do text: cellular attached but no data. {reception} is one localized sentence.",
     "placeholders": {
-      "reception": { "type": "String" }
+      "reception": {
+        "type": "String"
+      }
     }
   },
   "solutionMobileNoDataReception": "{signal, select, good{Toggle mobile data off and on.} weak{Your signal is weak: move to a spot with better reception and toggle mobile data off and on.} other{Move to a spot with better signal, or toggle mobile data off and on.}}",
   "@solutionMobileNoDataReception": {
     "description": "Step 3 of the mobile-no-data advice, varying with the measured cellular signal.",
     "placeholders": {
-      "signal": { "type": "String" }
+      "signal": {
+        "type": "String"
+      }
     }
   },
-
   "verdictDnsProblemTitle": "DNS problem",
   "@verdictDnsProblemTitle": {
     "description": "Diagnosis verdict headline: names do not resolve but IPs are reachable."
@@ -346,20 +336,25 @@
   "@solutionDnsProblemMessageFixed": {
     "description": "What-to-do text for a DNS problem on Wi-Fi/wired."
   },
-
   "verdictPortBlockedTitle": "Port {port} is blocked",
   "@verdictPortBlockedTitle": {
     "description": "Diagnosis verdict headline: one port is firewalled while others work.",
     "placeholders": {
-      "port": { "type": "String" }
+      "port": {
+        "type": "String"
+      }
     }
   },
   "verdictPortBlockedDetail": "General Internet access works, but {service} traffic on port {port} is being blocked — likely by a firewall on this network. Some apps that rely on this port will not work.",
   "@verdictPortBlockedDetail": {
     "description": "Diagnosis verdict body for a blocked port.",
     "placeholders": {
-      "service": { "type": "String" },
-      "port": { "type": "String" }
+      "service": {
+        "type": "String"
+      },
+      "port": {
+        "type": "String"
+      }
     }
   },
   "solutionPortBlockedMobile": "Your mobile carrier is likely blocking it by policy — try Wi-Fi or a VPN instead, or contact your carrier if you need this port open over cellular.",
@@ -370,10 +365,11 @@
   "@solutionPortBlockedFixed": {
     "description": "What-to-do text for a blocked port on Wi-Fi/wired.",
     "placeholders": {
-      "port": { "type": "String" }
+      "port": {
+        "type": "String"
+      }
     }
   },
-
   "verdictIspPathMobileTitle": "Network path problem at your carrier",
   "@verdictIspPathMobileTitle": {
     "description": "Diagnosis verdict headline: traffic dies inside the mobile carrier's network."
@@ -386,14 +382,18 @@
   "@verdictIspPathDetailMobile": {
     "description": "Diagnosis verdict body for a carrier path fault. {hop} is a hop address or a generic phrase.",
     "placeholders": {
-      "hop": { "type": "String" }
+      "hop": {
+        "type": "String"
+      }
     }
   },
   "verdictIspPathDetailFixed": "Your connection reaches the Internet but traffic stops along the way, after {hop}. The fault is on your Internet provider or backbone route, not on your device or router.",
   "@verdictIspPathDetailFixed": {
     "description": "Diagnosis verdict body for an ISP path fault. {hop} is a hop address or a generic phrase.",
     "placeholders": {
-      "hop": { "type": "String" }
+      "hop": {
+        "type": "String"
+      }
     }
   },
   "verdictIspPathHopGenericMobile": "a hop inside your mobile carrier",
@@ -412,68 +412,97 @@
   "@solutionIspPathMessageFixed": {
     "description": "What-to-do text for an ISP path fault."
   },
-
   "verdictCapabilityGoodTitle": "Your {medium} is good for {uses} — and more",
   "@verdictCapabilityGoodTitle": {
     "description": "Diagnosis verdict headline: the connection is healthy. {uses} is a list of activities.",
     "placeholders": {
-      "medium": { "type": "String" },
-      "uses": { "type": "String" }
+      "medium": {
+        "type": "String"
+      },
+      "uses": {
+        "type": "String"
+      }
     }
   },
   "verdictCapabilityGoodDetail": "{measured} If something still feels wrong, it is most likely one app or website — not your connection.",
   "@verdictCapabilityGoodDetail": {
     "description": "Diagnosis verdict body for a healthy connection. {measured} is one localized sentence about the figures.",
     "placeholders": {
-      "measured": { "type": "String" }
+      "measured": {
+        "type": "String"
+      }
     }
   },
   "verdictCapabilityMostlyGoodTitle": "Your {medium} is good for everything except {failing}",
   "@verdictCapabilityMostlyGoodTitle": {
     "description": "Diagnosis verdict headline: healthy except for a few activities.",
     "placeholders": {
-      "medium": { "type": "String" },
-      "failing": { "type": "String" }
+      "medium": {
+        "type": "String"
+      },
+      "failing": {
+        "type": "String"
+      }
     }
   },
   "verdictCapabilityDegradedTitle": "Your {medium} is too weak for {failing}",
   "@verdictCapabilityDegradedTitle": {
     "description": "Diagnosis verdict headline: too weak for most demanding activities.",
     "placeholders": {
-      "medium": { "type": "String" },
-      "failing": { "type": "String" }
+      "medium": {
+        "type": "String"
+      },
+      "failing": {
+        "type": "String"
+      }
     }
   },
   "verdictMeasuredBoth": "Measured over {medium}:\ndownload {down} Mbps, upload {up} Mbps.",
   "@verdictMeasuredBoth": {
     "description": "The measured-figures sentence when both download and upload are known.",
     "placeholders": {
-      "medium": { "type": "String" },
-      "down": { "type": "String" },
-      "up": { "type": "String" }
+      "medium": {
+        "type": "String"
+      },
+      "down": {
+        "type": "String"
+      },
+      "up": {
+        "type": "String"
+      }
     }
   },
   "verdictMeasuredDownOnly": "Measured over {medium}:\ndownload {down} Mbps.",
   "@verdictMeasuredDownOnly": {
     "description": "The measured-figures sentence when only download is known.",
     "placeholders": {
-      "medium": { "type": "String" },
-      "down": { "type": "String" }
+      "medium": {
+        "type": "String"
+      },
+      "down": {
+        "type": "String"
+      }
     }
   },
   "verdictMeasuredUpOnly": "Measured over {medium}:\nupload {up} Mbps.",
   "@verdictMeasuredUpOnly": {
     "description": "The measured-figures sentence when only upload is known.",
     "placeholders": {
-      "medium": { "type": "String" },
-      "up": { "type": "String" }
+      "medium": {
+        "type": "String"
+      },
+      "up": {
+        "type": "String"
+      }
     }
   },
   "verdictMeasuredNone": "Measured over {medium}.",
   "@verdictMeasuredNone": {
     "description": "The measured-figures sentence when no throughput figure is available.",
     "placeholders": {
-      "medium": { "type": "String" }
+      "medium": {
+        "type": "String"
+      }
     }
   },
   "verdictUploadNotAssessed": "The upload test could not run, therefore not assessed.",
@@ -496,7 +525,6 @@
   "@verdictCauseGeneric": {
     "description": "Verdict detail cause fallback when no more specific cause applies."
   },
-
   "adviceMoveCloser": "Move closer to the router, or try the 5 GHz network if your router offers one.",
   "@adviceMoveCloser": {
     "description": "Remediation step for a weak local Wi-Fi hop."
@@ -509,7 +537,6 @@
   "@adviceDropTheCamera": {
     "description": "Remediation step: a voice-only call still fits when video does not."
   },
-
   "actionTestAgain": "Test again",
   "@actionTestAgain": {
     "description": "Solution button: re-run the diagnosis."
@@ -570,19 +597,22 @@
   "@confirmPrivateDns": {
     "description": "Confirmation prompt before opening Private DNS settings."
   },
-
   "mediumLabel": "{kind, select, wifi{Wi-Fi} mobile{mobile data} ethernet{wired connection} vpn{VPN connection} other{connection}}",
   "@mediumLabel": {
     "description": "How the tested link is named in verdict sentences and the log.",
     "placeholders": {
-      "kind": { "type": "String" }
+      "kind": {
+        "type": "String"
+      }
     }
   },
   "useCaseName": "{id, select, musicStreaming{music streaming} voiceCalls{voice calls} webBrowsing{web browsing} losslessMusic{lossless music} videoCalls720{video calls (720p)} teamGames{team games} videoCallsHd{video calls (HD)} hdVideo{HD video (1080p)} fastGames{fast online games} video4k{4K video} other{this activity}}",
   "@useCaseName": {
     "description": "Display name of an everyday activity the diagnosis reports on.",
     "placeholders": {
-      "id": { "type": "String" }
+      "id": {
+        "type": "String"
+      }
     }
   },
   "useCaseNoneDemanding": "anything demanding",
@@ -593,153 +623,297 @@
   "@listTwo": {
     "description": "Joins exactly two items in a sentence list.",
     "placeholders": {
-      "a": { "type": "String" },
-      "b": { "type": "String" }
+      "a": {
+        "type": "String"
+      },
+      "b": {
+        "type": "String"
+      }
     }
   },
   "listAnd": "{head} and {last}",
   "@listAnd": {
     "description": "Joins the comma-separated {head} of a list with its {last} item.",
     "placeholders": {
-      "head": { "type": "String" },
-      "last": { "type": "String" }
+      "head": {
+        "type": "String"
+      },
+      "last": {
+        "type": "String"
+      }
     }
   },
   "shortfallDownload": "download {value} Mbps",
   "@shortfallDownload": {
     "description": "Capability-list / log phrase for a download shortfall.",
-    "placeholders": { "value": { "type": "String" } }
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
   },
   "shortfallUpload": "upload {value} Mbps",
   "@shortfallUpload": {
     "description": "Capability-list / log phrase for an upload shortfall.",
-    "placeholders": { "value": { "type": "String" } }
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
   },
   "shortfallLatency": "latency {value} ms",
   "@shortfallLatency": {
     "description": "Capability-list / log phrase for a latency shortfall.",
-    "placeholders": { "value": { "type": "String" } }
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
   },
   "shortfallJitter": "jitter {value} ms",
   "@shortfallJitter": {
     "description": "Capability-list / log phrase for a jitter shortfall.",
-    "placeholders": { "value": { "type": "String" } }
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
   },
   "shortfallLoss": "packet loss {value}%",
   "@shortfallLoss": {
     "description": "Capability-list / log phrase for a packet-loss shortfall.",
-    "placeholders": { "value": { "type": "String" } }
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
   },
-
   "logHeadDeviceLink": "Device link",
-  "@logHeadDeviceLink": { "description": "Technical log heading." },
+  "@logHeadDeviceLink": {
+    "description": "Technical log heading."
+  },
   "logHeadRouter": "Router",
-  "@logHeadRouter": { "description": "Technical log heading." },
+  "@logHeadRouter": {
+    "description": "Technical log heading."
+  },
   "logHeadInternetReachability": "Internet reachability",
-  "@logHeadInternetReachability": { "description": "Technical log heading." },
+  "@logHeadInternetReachability": {
+    "description": "Technical log heading."
+  },
   "logHeadPorts": "Ports",
-  "@logHeadPorts": { "description": "Technical log heading." },
+  "@logHeadPorts": {
+    "description": "Technical log heading."
+  },
   "logHeadPopularSites": "Popular sites",
-  "@logHeadPopularSites": { "description": "Technical log heading." },
+  "@logHeadPopularSites": {
+    "description": "Technical log heading."
+  },
   "logHeadMeasurements": "Measurements",
-  "@logHeadMeasurements": { "description": "Technical log heading." },
+  "@logHeadMeasurements": {
+    "description": "Technical log heading."
+  },
   "logHeadGoodFor": "Good for",
-  "@logHeadGoodFor": { "description": "Technical log heading: activities the link supports." },
+  "@logHeadGoodFor": {
+    "description": "Technical log heading: activities the link supports."
+  },
   "logHeadNotGoodFor": "Not good enough for",
-  "@logHeadNotGoodFor": { "description": "Technical log heading: activities the link cannot carry." },
+  "@logHeadNotGoodFor": {
+    "description": "Technical log heading: activities the link cannot carry."
+  },
   "logHeadTestsPerformed": "Tests performed ({count})",
   "@logHeadTestsPerformed": {
     "description": "Technical log heading with the number of probes that ran.",
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "logYes": "yes",
-  "@logYes": { "description": "Affirmative answer word in the technical log (followed by a ✅/❌ mark)." },
+  "@logYes": {
+    "description": "Affirmative answer word in the technical log (followed by a ✅/❌ mark)."
+  },
   "logNo": "no",
-  "@logNo": { "description": "Negative answer word in the technical log (followed by a ✅/❌ mark)." },
+  "@logNo": {
+    "description": "Negative answer word in the technical log (followed by a ✅/❌ mark)."
+  },
   "logUnknown": "unknown",
-  "@logUnknown": { "description": "Placeholder in the log when a value is not known." },
+  "@logUnknown": {
+    "description": "Placeholder in the log when a value is not known."
+  },
   "logNotApplicable": "n/a",
-  "@logNotApplicable": { "description": "Placeholder in the log for a value that does not apply." },
+  "@logNotApplicable": {
+    "description": "Placeholder in the log for a value that does not apply."
+  },
   "logNotMeasured": "not measured",
-  "@logNotMeasured": { "description": "Log value when a figure was not measured." },
+  "@logNotMeasured": {
+    "description": "Log value when a figure was not measured."
+  },
   "logNotReported": "not reported",
-  "@logNotReported": { "description": "Log value when the OS did not report a figure." },
+  "@logNotReported": {
+    "description": "Log value when the OS did not report a figure."
+  },
   "logConnectivity": "Connectivity: {kind}, flight mode: {flight}",
   "@logConnectivity": {
     "description": "Log line for the device link.",
-    "placeholders": { "kind": { "type": "String" }, "flight": { "type": "String" } }
+    "placeholders": {
+      "kind": {
+        "type": "String"
+      },
+      "flight": {
+        "type": "String"
+      }
+    }
   },
   "logFlightOn": "on ✈️",
-  "@logFlightOn": { "description": "Flight-mode state in the connectivity log line." },
+  "@logFlightOn": {
+    "description": "Flight-mode state in the connectivity log line."
+  },
   "logFlightOff": "off ✅",
-  "@logFlightOff": { "description": "Flight-mode state in the connectivity log line." },
+  "@logFlightOff": {
+    "description": "Flight-mode state in the connectivity log line."
+  },
   "logGateway": "Gateway: {value}",
   "@logGateway": {
     "description": "Log line naming the gateway IP.",
-    "placeholders": { "value": { "type": "String" } }
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
   },
   "logGatewayReachable": "Gateway reachable: {answer}",
   "@logGatewayReachable": {
     "description": "Log line: whether the gateway answered.",
-    "placeholders": { "answer": { "type": "String" } }
+    "placeholders": {
+      "answer": {
+        "type": "String"
+      }
+    }
   },
   "logInternet": "Internet: {state}",
   "@logInternet": {
     "description": "Log line: whether the Internet answered.",
-    "placeholders": { "state": { "type": "String" } }
+    "placeholders": {
+      "state": {
+        "type": "String"
+      }
+    }
   },
   "logInternetReachableYes": "reachable ✅",
-  "@logInternetReachableYes": { "description": "Internet state in the reachability log line." },
+  "@logInternetReachableYes": {
+    "description": "Internet state in the reachability log line."
+  },
   "logInternetReachableNo": "no answer ❌",
-  "@logInternetReachableNo": { "description": "Internet state in the reachability log line." },
+  "@logInternetReachableNo": {
+    "description": "Internet state in the reachability log line."
+  },
   "logCaptiveSignIn": "Captive sign-in page: {answer}",
   "@logCaptiveSignIn": {
     "description": "Log line: whether a captive portal was found.",
-    "placeholders": { "answer": { "type": "String" } }
+    "placeholders": {
+      "answer": {
+        "type": "String"
+      }
+    }
   },
   "logRawIpReachable": "Raw IP address reachable: {answer}",
   "@logRawIpReachable": {
     "description": "Log line: whether a raw IP responded.",
-    "placeholders": { "answer": { "type": "String" } }
+    "placeholders": {
+      "answer": {
+        "type": "String"
+      }
+    }
   },
   "logNameResolves": "Name resolves ({host}): {answer}",
   "@logNameResolves": {
     "description": "Log line: whether DNS resolved a probe host.",
-    "placeholders": { "host": { "type": "String" }, "answer": { "type": "String" } }
+    "placeholders": {
+      "host": {
+        "type": "String"
+      },
+      "answer": {
+        "type": "String"
+      }
+    }
   },
   "logRouteReached": "Route reached the Internet: {answer}",
   "@logRouteReached": {
     "description": "Log line: whether traceroute reached the destination.",
-    "placeholders": { "answer": { "type": "String" } }
+    "placeholders": {
+      "answer": {
+        "type": "String"
+      }
+    }
   },
   "logRouteReachedHop": "Route reached the Internet: {answer} (last hop: {hop})",
   "@logRouteReachedHop": {
     "description": "Log line: traceroute result plus the last responding hop.",
-    "placeholders": { "answer": { "type": "String" }, "hop": { "type": "String" } }
+    "placeholders": {
+      "answer": {
+        "type": "String"
+      },
+      "hop": {
+        "type": "String"
+      }
+    }
   },
   "logPortLine": "Port {port}/{service}: {state}",
   "@logPortLine": {
     "description": "Log line for one probed port.",
-    "placeholders": { "port": { "type": "int" }, "service": { "type": "String" }, "state": { "type": "String" } }
+    "placeholders": {
+      "port": {
+        "type": "int"
+      },
+      "service": {
+        "type": "String"
+      },
+      "state": {
+        "type": "String"
+      }
+    }
   },
   "logPortOpen": "open ✅",
-  "@logPortOpen": { "description": "Port state in the port log line." },
+  "@logPortOpen": {
+    "description": "Port state in the port log line."
+  },
   "logPortBlocked": "blocked ❌",
-  "@logPortBlocked": { "description": "Port state in the port log line." },
+  "@logPortBlocked": {
+    "description": "Port state in the port log line."
+  },
   "logPopularCountry": "Country: {value}",
   "@logPopularCountry": {
     "description": "Log line: detected country for the popular-site check.",
-    "placeholders": { "value": { "type": "String" } }
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
   },
   "logPopularReachable": "Popular sites reachable: {reachable}/{total} {mark}",
   "@logPopularReachable": {
     "description": "Log line: how many popular sites responded.",
-    "placeholders": { "reachable": { "type": "int" }, "total": { "type": "int" }, "mark": { "type": "String" } }
+    "placeholders": {
+      "reachable": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      },
+      "mark": {
+        "type": "String"
+      }
+    }
   },
   "logTestedOver": "Tested over: {medium}",
   "@logTestedOver": {
     "description": "Log line: which medium the measurements used.",
-    "placeholders": { "medium": { "type": "String" } }
+    "placeholders": {
+      "medium": {
+        "type": "String"
+      }
+    }
   },
   "logMobileMeasuredReason": "Mobile data was measured because it is the link in use (Wi-Fi not connected, or you chose to retest over mobile)",
   "@logMobileMeasuredReason": {
@@ -748,7 +922,11 @@
   "logCellularSignalReported": "Cellular signal: {level} of 4",
   "@logCellularSignalReported": {
     "description": "Log line: cellular signal level on the Android 0-4 scale.",
-    "placeholders": { "level": { "type": "int" } }
+    "placeholders": {
+      "level": {
+        "type": "int"
+      }
+    }
   },
   "logCellularSignalMissing": "Cellular signal: not reported",
   "@logCellularSignalMissing": {
@@ -757,70 +935,193 @@
   "logDownloadLine": "Download: {value}",
   "@logDownloadLine": {
     "description": "Log line: measured download rate or \"not measured\".",
-    "placeholders": { "value": { "type": "String" } }
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
   },
   "logUploadLine": "Upload: {value}",
   "@logUploadLine": {
     "description": "Log line: measured upload rate or \"not measured\".",
-    "placeholders": { "value": { "type": "String" } }
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
   },
   "logMbps": "{value} Mbps",
   "@logMbps": {
     "description": "A throughput figure with its unit.",
-    "placeholders": { "value": { "type": "String" } }
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
   },
   "logSpeedTestMoved": "Moved by the speed test: received {received}, sent {sent}",
   "@logSpeedTestMoved": {
     "description": "Log line: data moved by the throughput test.",
-    "placeholders": { "received": { "type": "String" }, "sent": { "type": "String" } }
+    "placeholders": {
+      "received": {
+        "type": "String"
+      },
+      "sent": {
+        "type": "String"
+      }
+    }
   },
   "logLabelRouter": "Router",
-  "@logLabelRouter": { "description": "Label for the router latency log line." },
+  "@logLabelRouter": {
+    "description": "Label for the router latency log line."
+  },
   "logLabelInternet": "Internet",
-  "@logLabelInternet": { "description": "Label for the Internet latency log line." },
+  "@logLabelInternet": {
+    "description": "Label for the Internet latency log line."
+  },
   "logLatencyNoReply": "{label} response time: no reply to {sent} probes",
   "@logLatencyNoReply": {
     "description": "Log line when latency probes got no answer.",
-    "placeholders": { "label": { "type": "String" }, "sent": { "type": "int" } }
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "sent": {
+        "type": "int"
+      }
+    }
   },
   "logLatencyLine": "{label} response time: {avg} ms avg (min {min}, max {max}), jitter {jitter} ms, loss {loss}% ({received}/{sent} replies)",
   "@logLatencyLine": {
     "description": "Log line summarising a latency sample.",
     "placeholders": {
-      "label": { "type": "String" },
-      "avg": { "type": "int" },
-      "min": { "type": "int" },
-      "max": { "type": "int" },
-      "jitter": { "type": "String" },
-      "loss": { "type": "int" },
-      "received": { "type": "int" },
-      "sent": { "type": "int" }
+      "label": {
+        "type": "String"
+      },
+      "avg": {
+        "type": "int"
+      },
+      "min": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      },
+      "jitter": {
+        "type": "String"
+      },
+      "loss": {
+        "type": "int"
+      },
+      "received": {
+        "type": "int"
+      },
+      "sent": {
+        "type": "int"
+      }
     }
   },
   "logResponseWhileBusy": "Response time while busy: {ms} ms",
   "@logResponseWhileBusy": {
     "description": "Log line: response time under load, without the idle ratio.",
-    "placeholders": { "ms": { "type": "int" } }
+    "placeholders": {
+      "ms": {
+        "type": "int"
+      }
+    }
   },
   "logResponseWhileBusyRatio": "Response time while busy: {ms} ms ({ratio}x idle)",
   "@logResponseWhileBusyRatio": {
     "description": "Log line: response time under load with the multiple of the idle figure.",
-    "placeholders": { "ms": { "type": "int" }, "ratio": { "type": "String" } }
+    "placeholders": {
+      "ms": {
+        "type": "int"
+      },
+      "ratio": {
+        "type": "String"
+      }
+    }
   },
   "logNotGoodForItem": "{name} — {shortfalls}",
   "@logNotGoodForItem": {
     "description": "Log line: an unsupported activity and why it fails.",
-    "placeholders": { "name": { "type": "String" }, "shortfalls": { "type": "String" } }
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "shortfalls": {
+        "type": "String"
+      }
+    }
   },
   "logTestRecord": "{test} → {target}{traffic}",
   "@logTestRecord": {
     "description": "Log line: one probe that ran and the data it moved.",
-    "placeholders": { "test": { "type": "String" }, "target": { "type": "String" }, "traffic": { "type": "String" } }
+    "placeholders": {
+      "test": {
+        "type": "String"
+      },
+      "target": {
+        "type": "String"
+      },
+      "traffic": {
+        "type": "String"
+      }
+    }
+  },
+  "probeDnsResolution": "DNS resolution",
+  "@probeDnsResolution": {
+    "description": "Name of a performed check in the \"Tests performed\" list: looking up a host name in DNS."
+  },
+  "probeCaptivePortalCheck": "Internet / captive-portal check",
+  "@probeCaptivePortalCheck": {
+    "description": "Name of a performed check in the \"Tests performed\" list: probing a 204 endpoint to tell a working link from a captive portal."
+  },
+  "probeRouteToInternet": "Route to the Internet (traceroute)",
+  "@probeRouteToInternet": {
+    "description": "Name of a performed check in the \"Tests performed\" list: a traceroute towards an Internet host."
+  },
+  "probeCountryDetection": "Country detection",
+  "@probeCountryDetection": {
+    "description": "Name of a performed check in the \"Tests performed\" list: detecting which country the connection appears to be in."
+  },
+  "probePopularSitesReachability": "Popular sites reachability ({count})",
+  "@probePopularSitesReachability": {
+    "description": "Name of a performed check in the \"Tests performed\" list: reaching a set of popular sites. {count} is how many sites were tried.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "probeRouterLatency": "Router latency",
+  "@probeRouterLatency": {
+    "description": "Name of a performed check in the \"Tests performed\" list: ping round-trip time to the local router."
+  },
+  "probeInternetLatency": "Internet latency",
+  "@probeInternetLatency": {
+    "description": "Name of a performed check in the \"Tests performed\" list: ping round-trip time to an Internet host."
+  },
+  "probeResponseWhileBusy": "Response time while the line is busy",
+  "@probeResponseWhileBusy": {
+    "description": "Name of a performed check in the \"Tests performed\" list: latency sampled while the speed test is loading the link."
+  },
+  "probeDownloadSpeed": "Download speed",
+  "@probeDownloadSpeed": {
+    "description": "Name of a performed check in the \"Tests performed\" list: the download throughput measurement."
+  },
+  "probeUploadSpeed": "Upload speed",
+  "@probeUploadSpeed": {
+    "description": "Name of a performed check in the \"Tests performed\" list: the upload throughput measurement."
   },
   "logTotalData": "Total data used by this diagnosis: {traffic}",
   "@logTotalData": {
     "description": "Log line: total data used by the whole diagnosis.",
-    "placeholders": { "traffic": { "type": "String" } }
+    "placeholders": {
+      "traffic": {
+        "type": "String"
+      }
+    }
   },
   "logTotalCovers": "That total covers every test above, not only the speed test",
   "@logTotalCovers": {
@@ -829,11 +1130,874 @@
   "logTrafficSent": "sent {size}",
   "@logTrafficSent": {
     "description": "Half of a traffic figure: bytes sent.",
-    "placeholders": { "size": { "type": "String" } }
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
   },
   "logTrafficReceived": "received {size}",
   "@logTrafficReceived": {
     "description": "Half of a traffic figure: bytes received.",
-    "placeholders": { "size": { "type": "String" } }
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "urlErrorEmpty": "Please paste a website address first.",
+  "@urlErrorEmpty": {
+    "description": "URL check: the input was blank."
+  },
+  "urlErrorInvalid": "That does not look like a valid web address.",
+  "@urlErrorInvalid": {
+    "description": "URL check: the text is not a URL."
+  },
+  "urlErrorScheme": "Only http and https addresses can be checked.",
+  "@urlErrorScheme": {
+    "description": "URL check: a non-http(s) scheme was given."
+  },
+  "urlHeadlineWorks": "The website works",
+  "@urlHeadlineWorks": {
+    "description": "URL check headline: the site loaded fine."
+  },
+  "urlHeadlineWorksForYou": "The website works for you",
+  "@urlHeadlineWorksForYou": {
+    "description": "URL check headline: it loaded for you but is blocked elsewhere."
+  },
+  "urlHeadlineBlockedForYou": "The website seems blocked for you",
+  "@urlHeadlineBlockedForYou": {
+    "description": "URL check headline: up elsewhere, not for you."
+  },
+  "urlHeadlineNotFound": "This web address can't be found.",
+  "@urlHeadlineNotFound": {
+    "description": "URL check headline: the name resolves nowhere."
+  },
+  "urlHeadlineExpired": "The site domain has expired",
+  "@urlHeadlineExpired": {
+    "description": "URL check headline: the domain registration lapsed."
+  },
+  "urlHeadlineDownForEveryone": "The website is down for everyone",
+  "@urlHeadlineDownForEveryone": {
+    "description": "URL check headline: unreachable from every vantage point."
+  },
+  "urlHeadlineNotResponding": "The website is not responding",
+  "@urlHeadlineNotResponding": {
+    "description": "URL check headline: the address exists but the server is silent."
+  },
+  "urlHeadlineCertNotTrusted": "The site security certificate is not trusted",
+  "@urlHeadlineCertNotTrusted": {
+    "description": "URL check headline: TLS certificate could not be validated."
+  },
+  "urlHeadlineAnswered": "The website answered with a problem ({code}).",
+  "@urlHeadlineAnswered": {
+    "description": "URL check headline: the server replied with an error status.",
+    "placeholders": {
+      "code": {
+        "type": "int"
+      }
+    }
+  },
+  "urlFindingCertTitle": "Security certificate problem.",
+  "@urlFindingCertTitle": {
+    "description": "URL finding title for an untrusted certificate."
+  },
+  "urlFindingCertDetail": "The site HTTPS certificate could not be trusted{issue}. {consequence}",
+  "@urlFindingCertDetail": {
+    "description": "URL finding detail for an untrusted certificate. {issue} is either empty or \" (reason)\".",
+    "placeholders": {
+      "issue": {
+        "type": "String"
+      },
+      "consequence": {
+        "type": "String"
+      }
+    }
+  },
+  "urlCertIssueSuffix": " ({issue})",
+  "@urlCertIssueSuffix": {
+    "description": "Parenthetical reason appended after the certificate wording.",
+    "placeholders": {
+      "issue": {
+        "type": "String"
+      }
+    }
+  },
+  "urlCertConsequenceLoaded": "The page still loaded, but nothing you send to it is safe.",
+  "@urlCertConsequenceLoaded": {
+    "description": "Certificate consequence when the page loaded anyway."
+  },
+  "urlCertConsequenceRefused": "The connection was refused because of it.",
+  "@urlCertConsequenceRefused": {
+    "description": "Certificate consequence when the connection was refused."
+  },
+  "urlFindingWorksDetail": "The page answered normally (code {code}) from your device.{elsewhere}",
+  "@urlFindingWorksDetail": {
+    "description": "URL finding detail for a working site. {elsewhere} is an optional extra sentence.",
+    "placeholders": {
+      "code": {
+        "type": "int"
+      },
+      "elsewhere": {
+        "type": "String"
+      }
+    }
+  },
+  "urlWorksAlsoOutage": " An independent check ({source}) also reached it from {up} of {total} regions.",
+  "@urlWorksAlsoOutage": {
+    "description": "Extra sentence: the outage service also reached the site.",
+    "placeholders": {
+      "source": {
+        "type": "String"
+      },
+      "up": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "urlWorksAlsoRegions": " It also loads from {reachable} of {total} other countries.",
+  "@urlWorksAlsoRegions": {
+    "description": "Extra sentence: the multi-country check also reached the site.",
+    "placeholders": {
+      "reachable": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "urlFindingWorksBlockedTitle": "Works for you, but blocked in some countries.",
+  "@urlFindingWorksBlockedTitle": {
+    "description": "URL finding title: loads for you, geo-blocked elsewhere."
+  },
+  "urlFindingWorksBlockedDetail": "The page opened normally on your device (code {code}), so nothing is wrong with your connection.{where} If someone abroad cannot open it, that is the site geo-fencing them, not a fault either of you can fix.",
+  "@urlFindingWorksBlockedDetail": {
+    "description": "URL finding detail: loads for you, geo-blocked elsewhere.",
+    "placeholders": {
+      "code": {
+        "type": "int"
+      },
+      "where": {
+        "type": "String"
+      }
+    }
+  },
+  "urlBlockedFromCountries": " It was refused from {countries}.",
+  "@urlBlockedFromCountries": {
+    "description": "Names the countries that refused the site.",
+    "placeholders": {
+      "countries": {
+        "type": "String"
+      }
+    }
+  },
+  "urlBlockedByOutage": " An independent check ({source}) found it blocked in {blocked} of its {total} regions.",
+  "@urlBlockedByOutage": {
+    "description": "The outage service reported geo-blocking.",
+    "placeholders": {
+      "source": {
+        "type": "String"
+      },
+      "blocked": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "urlFindingBlockedTitle": "Blocked on your connection or in your country.",
+  "@urlFindingBlockedTitle": {
+    "description": "URL finding title: up elsewhere, not for you."
+  },
+  "urlFindingBlockedDetail": "The site is up — {evidence} — but nothing came back on your connection.{blocked} Either the site refuses visitors from your country, or your network blocks it.",
+  "@urlFindingBlockedDetail": {
+    "description": "URL finding detail: up elsewhere, not for you.",
+    "placeholders": {
+      "evidence": {
+        "type": "String"
+      },
+      "blocked": {
+        "type": "String"
+      }
+    }
+  },
+  "urlEvidenceRegions": "it loads from {reachable} of {total} other countries",
+  "@urlEvidenceRegions": {
+    "description": "Evidence fragment: reachable from other countries.",
+    "placeholders": {
+      "reachable": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "urlEvidenceOutage": "an independent check ({source}) reached it from {up} of {total} regions",
+  "@urlEvidenceOutage": {
+    "description": "Evidence fragment: reachable per the outage service.",
+    "placeholders": {
+      "source": {
+        "type": "String"
+      },
+      "up": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "urlEvidenceJoin": "{a}, and {b}",
+  "@urlEvidenceJoin": {
+    "description": "Joins two evidence fragments in the blocked-for-you detail.",
+    "placeholders": {
+      "a": {
+        "type": "String"
+      },
+      "b": {
+        "type": "String"
+      }
+    }
+  },
+  "urlAlsoFailedCountries": " Countries where it also failed: {countries}.",
+  "@urlAlsoFailedCountries": {
+    "description": "Lists the extra countries that also could not reach the site.",
+    "placeholders": {
+      "countries": {
+        "type": "String"
+      }
+    }
+  },
+  "urlFindingNotFoundTitle": "The address doesn't exist",
+  "@urlFindingNotFoundTitle": {
+    "description": "URL finding title: the name resolves nowhere."
+  },
+  "urlFindingNotFoundDetail": "The website name could not be found anywhere on the Internet.{registry}",
+  "@urlFindingNotFoundDetail": {
+    "description": "URL finding detail: the name resolves nowhere. {registry} is an optional extra sentence.",
+    "placeholders": {
+      "registry": {
+        "type": "String"
+      }
+    }
+  },
+  "urlRegistryNoRecord": " The domain registry has no registration for it either.",
+  "@urlRegistryNoRecord": {
+    "description": "Extra sentence: the registry also has no record."
+  },
+  "urlFindingExpiredTitle": "Domain registration has expired.",
+  "@urlFindingExpiredTitle": {
+    "description": "URL finding title: the domain registration lapsed."
+  },
+  "urlFindingExpiredDetail": "The owner let the domain lapse{expirySuffix}. Until they renew it, the site will not work for anyone.",
+  "@urlFindingExpiredDetail": {
+    "description": "URL finding detail: the domain registration lapsed. {expirySuffix} is optional.",
+    "placeholders": {
+      "expirySuffix": {
+        "type": "String"
+      }
+    }
+  },
+  "urlExpirySuffix": " (expired on {date})",
+  "@urlExpirySuffix": {
+    "description": "Parenthetical expiry date appended to the lapsed-domain wording.",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "urlFindingDownEverywhereDetail": "It could not be opened from {sources} either, so the site is down for everyone — not just you.",
+  "@urlFindingDownEverywhereDetail": {
+    "description": "URL finding detail: unreachable from every vantage point.",
+    "placeholders": {
+      "sources": {
+        "type": "String"
+      }
+    }
+  },
+  "urlSourceTestLocations": "{total} test locations",
+  "@urlSourceTestLocations": {
+    "description": "Source fragment: the multi-country test locations.",
+    "placeholders": {
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "urlSourceOutageRegions": "{total} regions of {source}",
+  "@urlSourceOutageRegions": {
+    "description": "Source fragment: the outage service's regions.",
+    "placeholders": {
+      "total": {
+        "type": "int"
+      },
+      "source": {
+        "type": "String"
+      }
+    }
+  },
+  "urlSourceJoin": "{a} and {b}",
+  "@urlSourceJoin": {
+    "description": "Joins two source fragments in the down-for-everyone detail.",
+    "placeholders": {
+      "a": {
+        "type": "String"
+      },
+      "b": {
+        "type": "String"
+      }
+    }
+  },
+  "urlFindingNotRespondingDetail": "The address exists, but no reply came back from the server{error}. It is either switched off or unreachable right now.",
+  "@urlFindingNotRespondingDetail": {
+    "description": "URL finding detail: the server never answered. {error} is optional.",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "urlErrorParenthetical": " ({error})",
+  "@urlErrorParenthetical": {
+    "description": "Parenthetical transport error appended to a finding.",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "urlStatus401Title": "The site works but needs you to log in first.",
+  "@urlStatus401Title": {
+    "description": "HTTP 401 finding title."
+  },
+  "urlStatus401Detail": "Sign-in required (401).",
+  "@urlStatus401Detail": {
+    "description": "HTTP 401 finding detail."
+  },
+  "urlStatus403Title": "The server refused the request",
+  "@urlStatus403Title": {
+    "description": "HTTP 403 finding title."
+  },
+  "urlStatus403Detail": "Access denied (403). This is often geo-fencing, a network/firewall block, or a block on automated access.",
+  "@urlStatus403Detail": {
+    "description": "HTTP 403 finding detail."
+  },
+  "urlStatus404Title": "Page not found (404).",
+  "@urlStatus404Title": {
+    "description": "HTTP 404 finding title."
+  },
+  "urlStatus404Detail": "The server is up but this exact page does not exist.",
+  "@urlStatus404Detail": {
+    "description": "HTTP 404 finding detail."
+  },
+  "urlStatus408Title": "Request timed out (408).",
+  "@urlStatus408Title": {
+    "description": "HTTP 408 finding title."
+  },
+  "urlStatus408Detail": "The server was too slow to accept the request.",
+  "@urlStatus408Detail": {
+    "description": "HTTP 408 finding detail."
+  },
+  "urlStatus429Title": "The site is refusing this many requests from you.",
+  "@urlStatus429Title": {
+    "description": "HTTP 429 finding title."
+  },
+  "urlStatus429Detail": "Too many requests (429).",
+  "@urlStatus429Detail": {
+    "description": "HTTP 429 finding detail."
+  },
+  "urlStatus451Title": "The site is legally barred from serving your region.",
+  "@urlStatus451Title": {
+    "description": "HTTP 451 finding title."
+  },
+  "urlStatus451Detail": "Blocked for legal reasons (451). The site is not broken and nothing on your side is wrong.",
+  "@urlStatus451Detail": {
+    "description": "HTTP 451 finding detail."
+  },
+  "urlStatus5xxTitle": "The problem is on the website end, not yours.",
+  "@urlStatus5xxTitle": {
+    "description": "HTTP 5xx finding title."
+  },
+  "urlStatus5xxDetail": "The website has a server error ({code}). It may be down or under maintenance.",
+  "@urlStatus5xxDetail": {
+    "description": "HTTP 5xx finding detail.",
+    "placeholders": {
+      "code": {
+        "type": "int"
+      }
+    }
+  },
+  "urlStatusDefaultTitle": "The site answered with an unusual code.",
+  "@urlStatusDefaultTitle": {
+    "description": "Unrecognised HTTP status finding title."
+  },
+  "urlStatusDefaultDetail": "Unexpected response ({code}).",
+  "@urlStatusDefaultDetail": {
+    "description": "Unrecognised HTTP status finding detail.",
+    "placeholders": {
+      "code": {
+        "type": "int"
+      }
+    }
+  },
+  "urlAdviceCertNoPasswords": "Do not enter passwords or card details on this site.",
+  "@urlAdviceCertNoPasswords": {
+    "description": "URL advice: untrusted certificate."
+  },
+  "urlAdviceCheckClock": "Check that your phone date and time are correct — a wrong clock makes good certificates look broken.",
+  "@urlAdviceCheckClock": {
+    "description": "URL advice: a wrong device clock breaks certificate validation."
+  },
+  "urlAdviceCertOwnerFix": "If the clock is right, only the site owner can fix it.",
+  "@urlAdviceCertOwnerFix": {
+    "description": "URL advice: certificate is the owner's to fix."
+  },
+  "urlAdviceCheckSpelling": "Check the spelling of the address.",
+  "@urlAdviceCheckSpelling": {
+    "description": "URL advice: verify the typed address."
+  },
+  "urlAdviceUnregistered": "If it is spelled correctly, the name is no longer registered — there is nothing to fix on your side.",
+  "@urlAdviceUnregistered": {
+    "description": "URL advice: the name is unregistered."
+  },
+  "urlAdviceOwnerRenew": "Nothing on your side can fix this — only the site owner can renew the name.",
+  "@urlAdviceOwnerRenew": {
+    "description": "URL advice: only the owner can renew a lapsed domain."
+  },
+  "urlAdviceTryMobile": "Try the same address over mobile data: that skips your Wi-Fi network and its filters.",
+  "@urlAdviceTryMobile": {
+    "description": "URL advice: retry over mobile data to bypass Wi-Fi filtering."
+  },
+  "urlAdviceVpn": "If it still fails, only a VPN set to another country gets around it.",
+  "@urlAdviceVpn": {
+    "description": "URL advice: a foreign VPN is the last resort."
+  },
+  "urlAdviceWaitNothingToFix": "Wait and try again later — there is nothing to fix on your side.",
+  "@urlAdviceWaitNothingToFix": {
+    "description": "URL advice: site down for everyone, just wait."
+  },
+  "urlAdviceTryAgainMinutes": "Try again in a few minutes.",
+  "@urlAdviceTryAgainMinutes": {
+    "description": "URL advice: retry shortly."
+  },
+  "urlAdviceTryMobileRuleOut": "Try the same address over mobile data to rule out your network.",
+  "@urlAdviceTryMobileRuleOut": {
+    "description": "URL advice: retry over mobile data to isolate the fault."
+  },
+  "urlAdvice401": "Open it in a browser and sign in with your account.",
+  "@urlAdvice401": {
+    "description": "URL advice for HTTP 401."
+  },
+  "urlAdvice404Typo": "Check the address for a typo.",
+  "@urlAdvice404Typo": {
+    "description": "URL advice for HTTP 404: check for a typo."
+  },
+  "urlAdvice404Home": "Open the site home page and navigate from there.",
+  "@urlAdvice404Home": {
+    "description": "URL advice for HTTP 404: start from the home page."
+  },
+  "urlAdvice408": "Try again; if it keeps timing out the site is overloaded.",
+  "@urlAdvice408": {
+    "description": "URL advice for HTTP 408."
+  },
+  "urlAdvice429NoRefresh": "Avoid refreshing repeatedly in the meantime.",
+  "@urlAdvice429NoRefresh": {
+    "description": "URL advice for HTTP 429: stop hammering the site."
+  },
+  "urlAdvice451": "A VPN set to another country is the only way around it.",
+  "@urlAdvice451": {
+    "description": "URL advice for HTTP 451."
+  },
+  "urlAdviceDefaultStatus": "Try opening it in a normal browser — it may work.",
+  "@urlAdviceDefaultStatus": {
+    "description": "URL advice for an unrecognised status code."
+  },
+  "urlAdviceSlow": "Try again later, or over a different network.",
+  "@urlAdviceSlow": {
+    "description": "URL advice: the site was very slow."
+  },
+  "urlAdviceOpenAlt": "Open {alt} instead.",
+  "@urlAdviceOpenAlt": {
+    "description": "URL advice: use the working alternate hostname.",
+    "placeholders": {
+      "alt": {
+        "type": "String"
+      }
+    }
+  },
+  "urlAdviceTryPort": "Try the address with the port added: {url}",
+  "@urlAdviceTryPort": {
+    "description": "URL advice: append the alternate port to the address.",
+    "placeholders": {
+      "url": {
+        "type": "String"
+      }
+    }
+  },
+  "urlWaitGeneric": "Wait a minute and try again.",
+  "@urlWaitGeneric": {
+    "description": "URL advice: wait when the server gave no Retry-After."
+  },
+  "urlWaitQuoted": "Wait {wait} — that is how long the site asked — and try again.",
+  "@urlWaitQuoted": {
+    "description": "URL advice: wait the exact time the server asked for.",
+    "placeholders": {
+      "wait": {
+        "type": "String"
+      }
+    }
+  },
+  "urlWaitSeconds": "{count, plural, =1{1 second} other{{count} seconds}}",
+  "@urlWaitSeconds": {
+    "description": "A duration in seconds, for the Retry-After wording.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "urlWaitMinutes": "{count, plural, =1{1 minute} other{{count} minutes}}",
+  "@urlWaitMinutes": {
+    "description": "A duration in minutes, for the Retry-After wording.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "urlWaitHours": "{count, plural, =1{1 hour} other{{count} hours}}",
+  "@urlWaitHours": {
+    "description": "A duration in hours, for the Retry-After wording.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "urlFindingSlowTitle": "The website is very slow.",
+  "@urlFindingSlowTitle": {
+    "description": "URL finding title: slow but working."
+  },
+  "urlFindingSlowDetail": "It took {seconds} seconds to respond. The site or your connection may be congested.",
+  "@urlFindingSlowDetail": {
+    "description": "URL finding detail: slow but working.",
+    "placeholders": {
+      "seconds": {
+        "type": "String"
+      }
+    }
+  },
+  "urlFindingAltTitle": "A similar address does work.",
+  "@urlFindingAltTitle": {
+    "description": "URL finding title: a near-miss hostname works."
+  },
+  "urlFindingAltDetail": "The exact address did not work, but \"{alt}\" did. You may have left off (or added) a \"www.\".",
+  "@urlFindingAltDetail": {
+    "description": "URL finding detail: a near-miss hostname works.",
+    "placeholders": {
+      "alt": {
+        "type": "String"
+      }
+    }
+  },
+  "urlFindingPortTitle": "The service may be on an unusual port.",
+  "@urlFindingPortTitle": {
+    "description": "URL finding title: service on an alternate port."
+  },
+  "urlFindingPortDetail": "The usual port {mainPort} is closed, but port {altPort} is open.",
+  "@urlFindingPortDetail": {
+    "description": "URL finding detail: service on an alternate port.",
+    "placeholders": {
+      "mainPort": {
+        "type": "int"
+      },
+      "altPort": {
+        "type": "int"
+      }
+    }
+  },
+  "urlFindingExpiresSoonTitle": "Domain expires soon.",
+  "@urlFindingExpiresSoonTitle": {
+    "description": "URL finding title: registration lapses within a month."
+  },
+  "urlFindingExpiresSoonDetail": "{count, plural, =1{The domain registration expires in 1 day.} other{The domain registration expires in {count} days.}} That is the site owner concern, not a fault on your side.",
+  "@urlFindingExpiresSoonDetail": {
+    "description": "URL finding detail: registration lapses within a month.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "urlLogHeadAddress": "Address",
+  "@urlLogHeadAddress": {
+    "description": "URL-check technical log heading."
+  },
+  "urlLogUrl": "URL: {url}",
+  "@urlLogUrl": {
+    "description": "URL-check log line: the normalised address.",
+    "placeholders": {
+      "url": {
+        "type": "String"
+      }
+    }
+  },
+  "urlLogDnsResolves": "Name resolves (DNS): {answer}",
+  "@urlLogDnsResolves": {
+    "description": "URL-check log line: DNS resolution result.",
+    "placeholders": {
+      "answer": {
+        "type": "String"
+      }
+    }
+  },
+  "urlLogRegistration": "Registration ({domain}): {value}",
+  "@urlLogRegistration": {
+    "description": "URL-check log line: domain registration facts.",
+    "placeholders": {
+      "domain": {
+        "type": "String"
+      },
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "urlLogRegistrationDetail": "exists {exists}, expired {expired}, expiry {expiry}",
+  "@urlLogRegistrationDetail": {
+    "description": "The {value} of the registration log line when the lookup succeeded.",
+    "placeholders": {
+      "exists": {
+        "type": "String"
+      },
+      "expired": {
+        "type": "String"
+      },
+      "expiry": {
+        "type": "String"
+      }
+    }
+  },
+  "urlLogNotChecked": "not checked",
+  "@urlLogNotChecked": {
+    "description": "URL-check log value: a probe did not run."
+  },
+  "urlLogNotKnown": "not known",
+  "@urlLogNotKnown": {
+    "description": "URL-check log value: the medium could not be read."
+  },
+  "urlLogHeadFromDevice": "From this device",
+  "@urlLogHeadFromDevice": {
+    "description": "URL-check technical log heading."
+  },
+  "urlLogTestedOver": "Tested over: {medium}",
+  "@urlLogTestedOver": {
+    "description": "URL-check log line: which link the check ran over.",
+    "placeholders": {
+      "medium": {
+        "type": "String"
+      }
+    }
+  },
+  "urlLogOpenedPage": "Opened the page: {answer}",
+  "@urlLogOpenedPage": {
+    "description": "URL-check log line: whether the fetch got any HTTP response.",
+    "placeholders": {
+      "answer": {
+        "type": "String"
+      }
+    }
+  },
+  "urlLogStatusCode": "Status code: {code}",
+  "@urlLogStatusCode": {
+    "description": "URL-check log line: final HTTP status.",
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "urlLogTimeToAnswer": "Time to answer: {value}",
+  "@urlLogTimeToAnswer": {
+    "description": "URL-check log line: fetch round-trip time.",
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "urlLogFinalAddress": "Final address: {url}",
+  "@urlLogFinalAddress": {
+    "description": "URL-check log line: the URL after redirects.",
+    "placeholders": {
+      "url": {
+        "type": "String"
+      }
+    }
+  },
+  "urlLogError": "Error: {error}",
+  "@urlLogError": {
+    "description": "URL-check log line: transport-level error text.",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "urlLogCertificate": "Certificate: {value}",
+  "@urlLogCertificate": {
+    "description": "URL-check log line: TLS certificate status.",
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "urlLogCertValid": "valid, expires {date}",
+  "@urlLogCertValid": {
+    "description": "Certificate log value when the certificate is trusted.",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "urlLogCertNotTrusted": "not trusted ({issue})",
+  "@urlLogCertNotTrusted": {
+    "description": "Certificate log value when it is not trusted and a reason is known.",
+    "placeholders": {
+      "issue": {
+        "type": "String"
+      }
+    }
+  },
+  "urlLogCertNotTrustedNoIssue": "not trusted",
+  "@urlLogCertNotTrustedNoIssue": {
+    "description": "Certificate log value when it is not trusted and no reason is known."
+  },
+  "urlLogHeadPorts": "Ports",
+  "@urlLogHeadPorts": {
+    "description": "URL-check technical log heading."
+  },
+  "urlLogPortLine": "{port} ({service}): {state}",
+  "@urlLogPortLine": {
+    "description": "URL-check log line for one probed port.",
+    "placeholders": {
+      "port": {
+        "type": "int"
+      },
+      "service": {
+        "type": "String"
+      },
+      "state": {
+        "type": "String"
+      }
+    }
+  },
+  "urlLogPortOpen": "open ✅",
+  "@urlLogPortOpen": {
+    "description": "Port state in the URL-check port log line."
+  },
+  "urlLogPortClosed": "closed ❌",
+  "@urlLogPortClosed": {
+    "description": "Port state in the URL-check port log line."
+  },
+  "urlLogHeadFromCountries": "From other countries (check-host.net)",
+  "@urlLogHeadFromCountries": {
+    "description": "URL-check technical log heading."
+  },
+  "urlLogNotAvailableForCheck": "Not available for this check",
+  "@urlLogNotAvailableForCheck": {
+    "description": "URL-check log line: an external source returned nothing usable."
+  },
+  "urlLogReachedFromLocations": "Reached from {reachable} of {total} locations",
+  "@urlLogReachedFromLocations": {
+    "description": "URL-check log line: multi-country reachability count.",
+    "placeholders": {
+      "reachable": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "urlLogHeadOutageCheck": "Independent outage check ({source})",
+  "@urlLogHeadOutageCheck": {
+    "description": "URL-check technical log heading for the outage service section.",
+    "placeholders": {
+      "source": {
+        "type": "String"
+      }
+    }
+  },
+  "urlLogOutageSummary": "Summary: verdict {verdict}, reached from {up} of {total} regions, likely blocked in {blocked}",
+  "@urlLogOutageSummary": {
+    "description": "URL-check log line: the outage service's summary.",
+    "placeholders": {
+      "verdict": {
+        "type": "String"
+      },
+      "up": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      },
+      "blocked": {
+        "type": "int"
+      }
+    }
+  },
+  "urlLogProbeLine": "{location}: {state}{status}",
+  "@urlLogProbeLine": {
+    "description": "URL-check log line for one vantage point. {status} is either empty or \" (code)\".",
+    "placeholders": {
+      "location": {
+        "type": "String"
+      },
+      "state": {
+        "type": "String"
+      },
+      "status": {
+        "type": "String"
+      }
+    }
+  },
+  "urlLogProbeReached": "reached ✅",
+  "@urlLogProbeReached": {
+    "description": "Vantage-point state in a URL-check probe log line."
+  },
+  "urlLogProbeFailed": "failed ❌",
+  "@urlLogProbeFailed": {
+    "description": "Vantage-point state in a URL-check probe log line."
+  },
+  "urlLogProbeStatusSuffix": " ({code})",
+  "@urlLogProbeStatusSuffix": {
+    "description": "The HTTP status a vantage point saw, appended to its probe line.",
+    "placeholders": {
+      "code": {
+        "type": "int"
+      }
+    }
+  },
+  "urlLogAlternate": "Alternate address {host}: {state}",
+  "@urlLogAlternate": {
+    "description": "URL-check log line: the near-miss hostname result.",
+    "placeholders": {
+      "host": {
+        "type": "String"
+      },
+      "state": {
+        "type": "String"
+      }
+    }
   }
 }

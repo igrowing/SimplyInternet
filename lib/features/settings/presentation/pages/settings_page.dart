@@ -51,9 +51,7 @@ class SettingsPage extends StatelessWidget {
 
 /// The Language setting: a tile showing the current choice, opening a
 /// bottom sheet with every supported language written in its own script.
-///
-/// Selecting one persists the choice but does not yet change the app's
-/// language — no translations exist yet — so a hint under the tile says so.
+/// Selecting one persists the choice and rebuilds the app in that language.
 class _LanguageTile extends StatelessWidget {
   const _LanguageTile({required this.current, required this.onSelected});
 
@@ -62,28 +60,12 @@ class _LanguageTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final subtitleStyle = Theme.of(
-      context,
-    ).textTheme.bodySmall?.copyWith(color: Theme.of(context).hintColor);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        ListTile(
-          leading: _flag(current.countryCode),
-          title: Text(AppLocalizations.of(context).settingsLanguage),
-          subtitle: Text(current.endonym),
-          trailing: const Icon(Icons.chevron_right),
-          onTap: () => _pickLanguage(context),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
-          child: Text(
-            AppLocalizations.of(context).settingsLanguageCaption,
-            style: subtitleStyle,
-          ),
-        ),
-      ],
+    return ListTile(
+      leading: _flag(current.countryCode),
+      title: Text(AppLocalizations.of(context).settingsLanguage),
+      subtitle: Text(current.endonym),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () => _pickLanguage(context),
     );
   }
 

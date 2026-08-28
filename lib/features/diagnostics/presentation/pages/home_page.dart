@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import 'package:simply_internet/features/diagnostics/presentation/controllers/diagnosis_controller.dart';
 import 'package:simply_internet/features/diagnostics/presentation/widgets/result_view.dart';
@@ -47,15 +46,7 @@ class _HomePageState extends State<HomePage> {
       appBar: AppBar(
         titleSpacing: 0,
         title: const _AppBarTitle(),
-        actions: [
-          IconButton(
-            tooltip: AppLocalizations.of(context).homeSettingsTooltip,
-            icon: const Icon(Icons.settings_outlined),
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(builder: (_) => const SettingsPage()),
-            ),
-          ),
-        ],
+        actions: const [_SettingsAction()],
       ),
       body: SafeArea(
         child: Consumer2<DiagnosisController, UrlCheckController>(
@@ -321,38 +312,46 @@ class _UrlCheckGroup extends StatelessWidget {
   }
 }
 
-/// App icon + name with the version shown in a small font underneath.
+/// The gear that opens Settings, shown only on the idle screen. It is hidden
+/// while a diagnosis or URL check is on screen: changing the language from a
+/// result view rebuilds it against a report whose text was frozen in the old
+/// language, so the screen ends up half-translated.
+class _SettingsAction extends StatelessWidget {
+  const _SettingsAction();
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer2<DiagnosisController, UrlCheckController>(
+      builder: (context, diag, url, _) {
+        final busy =
+            diag.status != DiagnosisStatus.idle ||
+            url.status != UrlCheckStatus.idle;
+        if (busy) return const SizedBox.shrink();
+        return IconButton(
+          tooltip: AppLocalizations.of(context).homeSettingsTooltip,
+          icon: const Icon(Icons.settings_outlined),
+          onPressed: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(builder: (_) => const SettingsPage()),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// App icon + name. The version is shown on the Settings screen instead.
 class _AppBarTitle extends StatelessWidget {
   const _AppBarTitle();
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         const SizedBox(width: 12),
         Image.asset('assets/simplyinternet_fg.png', width: 36, height: 36),
         const SizedBox(width: 10),
-        Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('SimplyInternet'),
-            FutureBuilder<PackageInfo>(
-              future: PackageInfo.fromPlatform(),
-              builder: (context, snapshot) {
-                final version = snapshot.data?.version;
-                return Text(
-                  version == null ? '' : 'v$version',
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                );
-              },
-            ),
-          ],
-        ),
+        const Text('SimplyInternet'),
       ],
     );
   }

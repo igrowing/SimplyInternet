@@ -422,7 +422,7 @@ class RunDiagnosis {
       final traffic = _formatTraffic(l10n, r.bytesSent, r.bytesReceived);
       note(
         l10n.logTestRecord(
-          r.test,
+          _localizedTestName(l10n, r.test),
           r.target,
           traffic.isEmpty ? '' : ' ($traffic)',
         ),
@@ -435,6 +435,42 @@ class RunDiagnosis {
       // is legitimately larger than the speed test figures alone.
       note(l10n.logTotalCovers);
     }
+  }
+
+  /// Localizes the probe label recorded by the data layer. `ProbeRecord.test`
+  /// is written in English there (it doubles as a stable key), so the
+  /// transparency list is translated here, at the point it is turned into a
+  /// log line, the same way every other line under this heading is. An
+  /// unrecognised label — currently just the per-port checks, whose text is
+  /// `Port 443/HTTPS` and already language-neutral — is passed through as-is.
+  static String _localizedTestName(AppLocalizations l10n, String test) {
+    switch (test) {
+      case 'DNS resolution':
+        return l10n.probeDnsResolution;
+      case 'Internet / captive-portal check':
+        return l10n.probeCaptivePortalCheck;
+      case 'Route to the Internet (traceroute)':
+        return l10n.probeRouteToInternet;
+      case 'Country detection':
+        return l10n.probeCountryDetection;
+      case 'Router latency':
+        return l10n.probeRouterLatency;
+      case 'Internet latency':
+        return l10n.probeInternetLatency;
+      case 'Response time while the line is busy':
+        return l10n.probeResponseWhileBusy;
+      case 'Download speed':
+        return l10n.probeDownloadSpeed;
+      case 'Upload speed':
+        return l10n.probeUploadSpeed;
+    }
+    final popular = RegExp(
+      r'^Popular sites reachability \((\d+)\)$',
+    ).firstMatch(test);
+    if (popular != null) {
+      return l10n.probePopularSitesReachability(int.parse(popular.group(1)!));
+    }
+    return test;
   }
 
   /// "sent 1.2 kB, received 3 kB", dropping either half when it is zero so

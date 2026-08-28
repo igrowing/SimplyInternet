@@ -23,7 +23,7 @@ the end for adding **a single new string** to the languages that already exist.
 | Translation files (one per language) | `lib/l10n/app_<code>.arb` |
 | Source of truth (English, with descriptions) | `lib/l10n/app_en.arb` |
 | Generator config | `l10n.yaml` |
-| Generated Dart (do **not** edit by hand) | `lib/l10n/app_localizations*.dart` |
+| Generated Dart — **git-ignored, never edited or committed** | `lib/l10n/app_localizations*.dart` |
 | Language picker list | `lib/features/settings/domain/entities/app_language.dart` |
 | Wiring into the app | `lib/main.dart` (`AppLocalizations.supportedLocales`) |
 
@@ -34,6 +34,12 @@ languages just need the `"key": "value"` pairs.
 The generated `AppLocalizations` and the app's `supportedLocales` are built
 **automatically** from whatever `app_*.arb` files exist, so once your file is in
 place and `flutter gen-l10n` has run, the locale is live.
+
+The `lib/l10n/app_localizations*.dart` files are build output and are **not in
+git** (`.gitignore` excludes them). `flutter pub get` regenerates them, so they
+appear in your working tree but never in a diff or a PR — commit only the `.arb`
+files. If your editor shows "undefined" errors on `AppLocalizations` right after
+a fresh clone, run `flutter pub get` once.
 
 ---
 
@@ -116,7 +122,8 @@ This:
 
 - validates that `app_nl.arb` parses and that every placeholder matches the
   template;
-- regenerates `lib/l10n/app_localizations*.dart`;
+- regenerates `lib/l10n/app_localizations*.dart` (git-ignored — leave them out
+  of your commit);
 - reports how many messages are still untranslated per language.
 
 If it lists untranslated messages for `nl`, add a temporary line to `l10n.yaml`:
