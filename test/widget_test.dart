@@ -14,11 +14,13 @@ import 'package:simply_internet/l10n/app_localizations.dart';
 
 import 'fakes.dart';
 
-UrlCheckController _urlController() => UrlCheckController(
-  checkUrl: CheckUrl(FakeUrlInspector()),
-  deviceActions: FakeDeviceActions(),
-  networkProbe: FakeNetworkProbe(),
-);
+UrlCheckController _urlController({List<String>? history}) =>
+    UrlCheckController(
+      checkUrl: CheckUrl(FakeUrlInspector()),
+      deviceActions: FakeDeviceActions(),
+      networkProbe: FakeNetworkProbe(),
+      urlHistory: FakeUrlHistory(history),
+    );
 
 /// Wraps [home] with the localization delegates `AppLocalizations.of`
 /// requires, pinned to English so assertions on literal text stay stable.
@@ -171,5 +173,93 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Check it'), findsOneWidget);
     expect(find.byIcon(Icons.settings_outlined), findsOneWidget);
+  });
+
+  testWidgets('the URL field drops down remembered addresses on tap', (
+    tester,
+  ) async {
+    final prefs = await SharedPreferences.getInstance();
+
+    await tester.pumpWidget(
+      _wrapHome(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider<ThemeController>.value(
+              value: ThemeController(prefs),
+            ),
+            ChangeNotifierProvider<DiagnosisController>.value(
+              value: DiagnosisController(
+                runDiagnosis: RunDiagnosis(FakeNetworkProbe()),
+                deviceActions: FakeDeviceActions(),
+              ),
+            ),
+            ChangeNotifierProvider<UrlCheckController>.value(
+              value: _urlController(
+                history: ['first.example', 'second.example'],
+              ),
+            ),
+          ],
+          child: const HomePage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Nothing is offered until the field is touched.
+    expect(find.text('first.example'), findsNothing);
+
+    await tester.tap(find.byType(TextField));
+    await tester.pumpAndSettle();
+
+    expect(find.text('first.example'), findsOneWidget);
+    expect(find.text('second.example'), findsOneWidget);
+
+    // Typing narrows the list to the matching address.
+    await tester.enterText(find.byType(TextField), 'second');
+    await tester.pumpAndSettle();
+    expect(find.text('first.example'), findsNothing);
+    expect(find.text('second.example'), findsOneWidget);
+
+    // Picking one runs the check for that address.
+    await tester.tap(find.text('second.example'));
+    await tester.pumpAndSettle();
+    expect(find.text('The website works'), findsOneWidget);
+  });
+
+  testWidgets('a checked address joins the dropdown next time', (tester) async {
+    final prefs = await SharedPreferences.getInstance();
+
+    await tester.pumpWidget(
+      _wrapHome(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider<ThemeController>.value(
+              value: ThemeController(prefs),
+            ),
+            ChangeNotifierProvider<DiagnosisController>.value(
+              value: DiagnosisController(
+                runDiagnosis: RunDiagnosis(FakeNetworkProbe()),
+                deviceActions: FakeDeviceActions(),
+              ),
+            ),
+            ChangeNotifierProvider<UrlCheckController>.value(
+              value: _urlController(),
+            ),
+          ],
+          child: const HomePage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), 'example.com');
+    await tester.tap(find.text('Check it'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Check another'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byType(TextField));
+    await tester.pumpAndSettle();
+    expect(find.text('example.com'), findsOneWidget);
   });
 }

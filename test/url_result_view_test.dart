@@ -18,6 +18,7 @@ Future<UrlCheckController> _checkedOver(ConnectivityKind medium) async {
     networkProbe: FakeNetworkProbe(
       connectivityResult: ConnectivityStatus(kind: medium, airplaneMode: false),
     ),
+    urlHistory: FakeUrlHistory(),
   );
   await controller.check('example.com');
   return controller;

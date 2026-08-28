@@ -44,16 +44,19 @@ void main() {
   group('UrlCheckController', () {
     late FakeDeviceActions actions;
     late UrlCheckController controller;
+    late FakeUrlHistory historyStore;
 
     late FakeNetworkProbe probe;
 
     setUp(() {
       actions = FakeDeviceActions();
       probe = FakeNetworkProbe();
+      historyStore = FakeUrlHistory();
       controller = UrlCheckController(
         checkUrl: CheckUrl(FakeUrlInspector()),
         deviceActions: actions,
         networkProbe: probe,
+        urlHistory: historyStore,
       );
     });
 
@@ -92,6 +95,7 @@ void main() {
           checkUrl: hanging,
           deviceActions: FakeDeviceActions(),
           networkProbe: FakeNetworkProbe(),
+          urlHistory: FakeUrlHistory(),
         );
       });
 
@@ -136,6 +140,7 @@ void main() {
         checkUrl: _FailingCheckUrl(),
         deviceActions: actions,
         networkProbe: probe,
+        urlHistory: FakeUrlHistory(),
       );
       await failing.check('example.com');
       expect(failing.status, UrlCheckStatus.error);
@@ -156,6 +161,31 @@ void main() {
       expect(controller.report, isNotNull);
       await controller.check('');
       expect(controller.report, isNull);
+    });
+
+    group('remembering what was checked', () {
+      test('a finished check is added to the history, newest first', () async {
+        await controller.check('example.com');
+        await controller.check('other.example');
+        expect(controller.history, ['other.example', 'example.com']);
+      });
+
+      test('a bad address is never remembered', () async {
+        await controller.check('');
+        await controller.check('ftp://example.com');
+        expect(controller.history, isEmpty);
+      });
+
+      test('the history is exposed straight from the store', () async {
+        historyStore = FakeUrlHistory(['seed.example']);
+        final seeded = UrlCheckController(
+          checkUrl: CheckUrl(FakeUrlInspector()),
+          deviceActions: actions,
+          networkProbe: probe,
+          urlHistory: historyStore,
+        );
+        expect(seeded.history, ['seed.example']);
+      });
     });
 
     group('openInBrowser', () {

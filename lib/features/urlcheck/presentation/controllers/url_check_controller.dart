@@ -5,6 +5,7 @@ import 'package:simply_internet/features/diagnostics/domain/entities/verdict_cat
 import 'package:simply_internet/features/diagnostics/domain/repositories/device_actions.dart';
 import 'package:simply_internet/features/diagnostics/domain/repositories/network_probe.dart';
 import 'package:simply_internet/features/urlcheck/domain/entities/url_check_report.dart';
+import 'package:simply_internet/features/urlcheck/domain/repositories/url_history.dart';
 import 'package:simply_internet/features/urlcheck/domain/usecases/check_url.dart';
 import 'package:simply_internet/l10n/app_localizations.dart';
 import 'package:simply_internet/l10n/app_localizations_en.dart';
@@ -18,14 +19,17 @@ class UrlCheckController extends ChangeNotifier {
     required CheckUrl checkUrl,
     required DeviceActions deviceActions,
     required NetworkProbe networkProbe,
+    required UrlHistory urlHistory,
   }) : _checkUrl = checkUrl,
        _deviceActions = deviceActions,
        _networkProbe = networkProbe,
+       _urlHistory = urlHistory,
        _retest = CrossMediumRetest(deviceActions);
 
   final CheckUrl _checkUrl;
   final DeviceActions _deviceActions;
   final NetworkProbe _networkProbe;
+  final UrlHistory _urlHistory;
   final CrossMediumRetest _retest;
 
   UrlCheckStatus _status = UrlCheckStatus.idle;
@@ -38,6 +42,10 @@ class UrlCheckController extends ChangeNotifier {
   String? get error => _error;
 
   bool get isRunning => _status == UrlCheckStatus.running;
+
+  /// Addresses the user has checked before, newest first, offered as
+  /// suggestions under the URL field.
+  List<String> get history => _urlHistory.entries();
 
   /// What the user typed, kept so the same address can be checked again over
   /// the other medium.
@@ -82,6 +90,9 @@ class UrlCheckController extends ChangeNotifier {
         l10n: _l10n,
       );
       _status = UrlCheckStatus.done;
+      // Only a check that reached the inspector is worth remembering: a bad
+      // address never gets this far, so the suggestion list stays clean.
+      await _urlHistory.remember(rawUrl);
     } on InvalidUrlException catch (e) {
       _error = e.message;
       _status = UrlCheckStatus.error;

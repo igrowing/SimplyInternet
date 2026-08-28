@@ -138,10 +138,12 @@ class _IdleView extends StatefulWidget {
 
 class _IdleViewState extends State<_IdleView> {
   final TextEditingController _urlField = TextEditingController();
+  final FocusNode _urlFocus = FocusNode();
 
   @override
   void dispose() {
     _urlField.dispose();
+    _urlFocus.dispose();
     super.dispose();
   }
 
@@ -162,11 +164,12 @@ class _IdleViewState extends State<_IdleView> {
         final wide = constraints.maxWidth > 600;
         final diagnose = _DiagnoseGroup(
           compact: wide,
-          onStart: () =>
-              widget.diag.run(l10n: AppLocalizations.of(context)),
+          onStart: () => widget.diag.run(l10n: AppLocalizations.of(context)),
         );
         final checkUrl = _UrlCheckGroup(
           controller: _urlField,
+          focusNode: _urlFocus,
+          history: widget.url.history,
           onSubmit: _submitUrl,
         );
 
@@ -260,11 +263,28 @@ class _DiagnoseGroup extends StatelessWidget {
 }
 
 /// The single-URL check function: label, URL field, "Check it" button.
+///
+/// The field is an [Autocomplete] over [history]: focusing it (with the field
+/// empty) drops down every address checked before, and typing narrows the
+/// list. Picking one fills the field and runs the check straight away.
 class _UrlCheckGroup extends StatelessWidget {
-  const _UrlCheckGroup({required this.controller, required this.onSubmit});
+  const _UrlCheckGroup({
+    required this.controller,
+    required this.focusNode,
+    required this.history,
+    required this.onSubmit,
+  });
 
   final TextEditingController controller;
+  final FocusNode focusNode;
+  final List<String> history;
   final VoidCallback onSubmit;
+
+  Iterable<String> _suggestions(TextEditingValue value) {
+    final query = value.text.trim().toLowerCase();
+    if (query.isEmpty) return history;
+    return history.where((url) => url.toLowerCase().contains(query));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -282,17 +302,32 @@ class _UrlCheckGroup extends StatelessWidget {
           style: theme.textTheme.titleMedium,
         ),
         const SizedBox(height: 16),
-        TextField(
-          controller: controller,
-          keyboardType: TextInputType.url,
-          textInputAction: TextInputAction.go,
-          autocorrect: false,
-          onSubmitted: (_) => onSubmit(),
-          decoration: InputDecoration(
-            hintText: l10n.homeUrlHint,
-            prefixIcon: const Icon(Icons.public),
-            border: const OutlineInputBorder(),
-          ),
+        Autocomplete<String>(
+          // Remount when the remembered list changes so a freshly checked
+          // address is in the suggestions the next time the field is opened.
+          key: ValueKey(Object.hashAll(history)),
+          textEditingController: controller,
+          focusNode: focusNode,
+          optionsBuilder: _suggestions,
+          onSelected: (_) => onSubmit(),
+          fieldViewBuilder: (context, textController, node, onFieldSubmitted) {
+            return TextField(
+              controller: textController,
+              focusNode: node,
+              keyboardType: TextInputType.url,
+              textInputAction: TextInputAction.go,
+              autocorrect: false,
+              onSubmitted: (_) {
+                onFieldSubmitted();
+                onSubmit();
+              },
+              decoration: InputDecoration(
+                hintText: l10n.homeUrlHint,
+                prefixIcon: const Icon(Icons.public),
+                border: const OutlineInputBorder(),
+              ),
+            );
+          },
         ),
         const SizedBox(height: 16),
         SizedBox(
@@ -330,9 +365,9 @@ class _SettingsAction extends StatelessWidget {
         return IconButton(
           tooltip: AppLocalizations.of(context).homeSettingsTooltip,
           icon: const Icon(Icons.settings_outlined),
-          onPressed: () => Navigator.of(context).push(
-            MaterialPageRoute<void>(builder: (_) => const SettingsPage()),
-          ),
+          onPressed: () => Navigator.of(
+            context,
+          ).push(MaterialPageRoute<void>(builder: (_) => const SettingsPage())),
         );
       },
     );
