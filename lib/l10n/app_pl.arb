@@ -29,7 +29,7 @@
   "resultDialogYes": "Tak",
   "resultNothingToOpen": "Nie ma nic do otwarcia dla tego kroku.",
   "resultActionFailed": "Nie udało się wykonać tej czynności: {error}",
-  "resultCapabilityTitle": "Co potrafi Twoje połączenie ({fits} z {total})",
+  "resultCapabilityTitle": "Twoje połączenie nadaje się do ({fits} z {total}):",
   "resultUploadNotMeasured": "Nie udało się zmierzyć wysyłania, więc nie zostało ocenione.",
   "techDetailsTitle": "Szczegóły techniczne",
   "techDetailsCopy": "Kopiuj",

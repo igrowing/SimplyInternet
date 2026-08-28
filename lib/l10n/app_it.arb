@@ -29,7 +29,7 @@
   "resultDialogYes": "Sì",
   "resultNothingToOpen": "Non c'è nulla da aprire per questo passaggio.",
   "resultActionFailed": "Impossibile completare l'operazione: {error}",
-  "resultCapabilityTitle": "Cosa può fare la tua connessione ({fits} su {total})",
+  "resultCapabilityTitle": "La tua connessione va bene per ({fits} su {total}):",
   "resultUploadNotMeasured": "Non è stato possibile misurare l'upload, quindi non è stato valutato.",
   "techDetailsTitle": "Dettagli tecnici",
   "techDetailsCopy": "Copia",

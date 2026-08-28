@@ -122,9 +122,9 @@
       }
     }
   },
-  "resultCapabilityTitle": "What your connection can do ({fits} of {total})",
+  "resultCapabilityTitle": "Your connection is good for ({fits} of {total}):",
   "@resultCapabilityTitle": {
-    "description": "Collapsed header for the full \"good for…\" activity list.",
+    "description": "Collapsed header above the full activity list. Reads as an opening clause that the activity names complete, so it ends with a colon; in languages with grammatical case the activity names are in the case this clause governs (genitive in Slavic).",
     "placeholders": {
       "fits": {
         "type": "int",

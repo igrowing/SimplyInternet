@@ -29,7 +29,7 @@
   "resultDialogYes": "Да",
   "resultNothingToOpen": "Для этого шага нечего открывать.",
   "resultActionFailed": "Не удалось выполнить это действие: {error}",
-  "resultCapabilityTitle": "Что может ваше подключение ({fits} из {total})",
+  "resultCapabilityTitle": "Ваше подключение подходит для ({fits} из {total}):",
   "resultUploadNotMeasured": "Скорость отдачи не удалось измерить, поэтому она не оценивалась.",
   "techDetailsTitle": "Технические подробности",
   "techDetailsCopy": "Копировать",

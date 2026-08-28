@@ -29,7 +29,7 @@
   "resultDialogYes": "はい",
   "resultNothingToOpen": "この手順で開くものはありません。",
   "resultActionFailed": "この操作を完了できませんでした: {error}",
-  "resultCapabilityTitle": "お使いの回線でできること（{total}件中{fits}件）",
+  "resultCapabilityTitle": "お使いの回線で対応できる用途（{total}件中{fits}件）：",
   "resultUploadNotMeasured": "アップロード速度を測定できなかったため、評価できませんでした。",
   "techDetailsTitle": "技術的な詳細",
   "techDetailsCopy": "コピー",

@@ -29,7 +29,7 @@
   "resultDialogYes": "हां",
   "resultNothingToOpen": "इस चरण के लिए कुछ भी खोलने को नहीं है।",
   "resultActionFailed": "यह कार्रवाई पूरी नहीं हो सकी: {error}",
-  "resultCapabilityTitle": "आपका कनेक्शन क्या कर सकता है ({fits} में से {total})",
+  "resultCapabilityTitle": "आपका कनेक्शन ({total} में से {fits}) के लिए अच्छा है:",
   "resultUploadNotMeasured": "अपलोड मापा नहीं जा सका, इसलिए उसका आकलन नहीं हुआ।",
   "techDetailsTitle": "तकनीकी विवरण",
   "techDetailsCopy": "कॉपी करें",

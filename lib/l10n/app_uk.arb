@@ -29,7 +29,7 @@
   "resultDialogYes": "Так",
   "resultNothingToOpen": "Для цього кроку немає чого відкривати.",
   "resultActionFailed": "Не вдалося виконати цю дію: {error}",
-  "resultCapabilityTitle": "Що вміє ваше з'єднання ({fits} із {total})",
+  "resultCapabilityTitle": "Ваше з'єднання підходить для ({fits} із {total}):",
   "resultUploadNotMeasured": "Не вдалося виміряти вихідну швидкість, тому її не оцінено.",
   "techDetailsTitle": "Технічні подробиці",
   "techDetailsCopy": "Копіювати",

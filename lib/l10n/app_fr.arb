@@ -29,7 +29,7 @@
   "resultDialogYes": "Oui",
   "resultNothingToOpen": "Il n'y a rien à ouvrir pour cette étape.",
   "resultActionFailed": "Impossible d'effectuer cette action : {error}",
-  "resultCapabilityTitle": "Ce que votre connexion permet de faire ({fits} sur {total})",
+  "resultCapabilityTitle": "Votre connexion convient pour ({fits} sur {total}) :",
   "resultUploadNotMeasured": "L'envoi n'a pas pu être mesuré et n'a donc pas été évalué.",
   "techDetailsTitle": "Détails techniques",
   "techDetailsCopy": "Copier",

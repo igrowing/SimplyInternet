@@ -160,7 +160,10 @@ void main() {
         _wrap(const DiagnosisReport(verdict: _verdict, capability: assessment)),
       );
 
-      expect(find.text('What your connection can do (1 of 2)'), findsOneWidget);
+      expect(
+        find.text('Your connection is good for (1 of 2):'),
+        findsOneWidget,
+      );
       // Collapsed by default: the headline already named what matters.
       expect(find.text('video calls'), findsNothing);
     });
@@ -171,7 +174,7 @@ void main() {
       await tester.pumpWidget(
         _wrap(const DiagnosisReport(verdict: _verdict, capability: assessment)),
       );
-      await tester.tap(find.text('What your connection can do (1 of 2)'));
+      await tester.tap(find.text('Your connection is good for (1 of 2):'));
       await tester.pumpAndSettle();
 
       expect(find.text('music streaming'), findsOneWidget);
@@ -200,7 +203,7 @@ void main() {
           ),
         ),
       );
-      await tester.tap(find.text('What your connection can do (1 of 1)'));
+      await tester.tap(find.text('Your connection is good for (1 of 1):'));
       await tester.pumpAndSettle();
 
       expect(
@@ -213,7 +216,7 @@ void main() {
       await tester.pumpWidget(
         _wrap(const DiagnosisReport(verdict: _verdict, capability: assessment)),
       );
-      await tester.tap(find.text('What your connection can do (1 of 2)'));
+      await tester.tap(find.text('Your connection is good for (1 of 2):'));
       await tester.pumpAndSettle();
 
       expect(find.textContaining('Upload could not be measured'), findsNothing);

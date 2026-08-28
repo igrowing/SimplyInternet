@@ -29,7 +29,7 @@
   "resultDialogYes": "Sim",
   "resultNothingToOpen": "Não há nada para abrir nesta etapa.",
   "resultActionFailed": "Não foi possível concluir essa ação: {error}",
-  "resultCapabilityTitle": "O que a sua ligação permite fazer ({fits} de {total})",
+  "resultCapabilityTitle": "A sua ligação é boa para ({fits} de {total}):",
   "resultUploadNotMeasured": "Não foi possível medir o envio (upload), pelo que não foi avaliado.",
   "techDetailsTitle": "Detalhes técnicos",
   "techDetailsCopy": "Copiar",

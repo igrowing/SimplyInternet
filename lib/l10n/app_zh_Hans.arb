@@ -29,7 +29,7 @@
   "resultDialogYes": "是",
   "resultNothingToOpen": "此步骤没有可打开的内容。",
   "resultActionFailed": "无法完成该操作：{error}",
-  "resultCapabilityTitle": "您的网络能做什么（共 {total} 项，符合 {fits} 项）",
+  "resultCapabilityTitle": "您的网络适合以下用途（共 {total} 项，符合 {fits} 项）：",
   "resultUploadNotMeasured": "无法测量上传速度，因此未作评估。",
   "techDetailsTitle": "技术详情",
   "techDetailsCopy": "复制",

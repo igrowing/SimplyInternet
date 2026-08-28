@@ -29,7 +29,7 @@
   "resultDialogYes": "Ano",
   "resultNothingToOpen": "Pro tento krok není co otevřít.",
   "resultActionFailed": "Akci se nepodařilo dokončit: {error}",
-  "resultCapabilityTitle": "Co vaše připojení zvládne ({fits} z {total})",
+  "resultCapabilityTitle": "Vaše připojení je vhodné pro ({fits} z {total}):",
   "resultUploadNotMeasured": "Upload se nepodařilo změřit, proto nebyl vyhodnocen.",
   "techDetailsTitle": "Technické podrobnosti",
   "techDetailsCopy": "Kopírovat",

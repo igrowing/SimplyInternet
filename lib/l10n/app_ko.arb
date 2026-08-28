@@ -29,7 +29,7 @@
   "resultDialogYes": "예",
   "resultNothingToOpen": "이 단계에서 열 항목이 없습니다.",
   "resultActionFailed": "이 작업을 완료할 수 없습니다: {error}",
-  "resultCapabilityTitle": "내 연결로 할 수 있는 것 ({total}개 중 {fits}개)",
+  "resultCapabilityTitle": "내 연결에 적합한 용도 ({total}개 중 {fits}개):",
   "resultUploadNotMeasured": "업로드 속도를 측정할 수 없어 평가하지 못했습니다.",
   "techDetailsTitle": "기술 세부정보",
   "techDetailsCopy": "복사",

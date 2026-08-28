@@ -29,7 +29,7 @@
   "resultDialogYes": "ใช่",
   "resultNothingToOpen": "ไม่มีอะไรให้เปิดสำหรับขั้นตอนนี้",
   "resultActionFailed": "ไม่สามารถดำเนินการนี้ได้: {error}",
-  "resultCapabilityTitle": "การเชื่อมต่อของคุณทำอะไรได้บ้าง ({fits} จาก {total})",
+  "resultCapabilityTitle": "การเชื่อมต่อของคุณเพียงพอสำหรับ ({fits} จาก {total}):",
   "resultUploadNotMeasured": "ไม่สามารถวัดความเร็วอัปโหลดได้ จึงไม่ได้ประเมินผล",
   "techDetailsTitle": "รายละเอียดทางเทคนิค",
   "techDetailsCopy": "คัดลอก",

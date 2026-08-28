@@ -29,7 +29,7 @@
   "resultDialogYes": "Sí",
   "resultNothingToOpen": "No hay nada que abrir para este paso.",
   "resultActionFailed": "No se pudo completar esa acción: {error}",
-  "resultCapabilityTitle": "Lo que su conexión puede hacer ({fits} de {total})",
+  "resultCapabilityTitle": "Tu conexión es buena para ({fits} de {total}):",
   "resultUploadNotMeasured": "No se pudo medir la subida, por lo que no se evaluó.",
   "techDetailsTitle": "Detalles técnicos",
   "techDetailsCopy": "Copiar",
