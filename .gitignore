@@ -35,6 +35,7 @@ keystore_base64.txt
 .pub/
 /build/
 pubspec.lock
+/lib/l10n/app_localizations*.dart
 
 # Symbolication related
 app.*.symbols

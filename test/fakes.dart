@@ -5,6 +5,7 @@ import 'package:simply_internet/features/diagnostics/domain/entities/network_fac
 import 'package:simply_internet/features/diagnostics/domain/repositories/device_actions.dart';
 import 'package:simply_internet/features/diagnostics/domain/repositories/network_probe.dart';
 import 'package:simply_internet/features/urlcheck/domain/entities/url_facts.dart';
+import 'package:simply_internet/features/urlcheck/domain/repositories/url_history.dart';
 import 'package:simply_internet/features/urlcheck/domain/repositories/url_inspector.dart';
 
 /// A fully scriptable [NetworkProbe] for driving the diagnosis decision tree
@@ -135,9 +136,8 @@ class FakeNetworkProbe implements NetworkProbe {
   int resetUsageCount = 0;
 
   @override
-  DataUsage dataUsage() => _wasReset
-      ? usage
-      : DataUsage([...staleUsage.records, ...usage.records]);
+  DataUsage dataUsage() =>
+      _wasReset ? usage : DataUsage([...staleUsage.records, ...usage.records]);
 
   @override
   void resetUsage() {
@@ -187,6 +187,26 @@ class FakeDeviceActions implements DeviceActions {
     calls.add('url');
     lastUrl = url;
     return true;
+  }
+}
+
+/// In-memory [UrlHistory] with the same newest-first, case-insensitive
+/// de-duplication rules as the real store.
+class FakeUrlHistory implements UrlHistory {
+  FakeUrlHistory([List<String>? initial]) : _entries = [...?initial];
+
+  final List<String> _entries;
+
+  @override
+  List<String> entries() => List.unmodifiable(_entries);
+
+  @override
+  Future<void> remember(String url) async {
+    final entry = url.trim();
+    if (entry.isEmpty) return;
+    _entries
+      ..removeWhere((e) => e.toLowerCase() == entry.toLowerCase())
+      ..insert(0, entry);
   }
 }
 

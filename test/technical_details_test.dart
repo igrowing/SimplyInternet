@@ -4,8 +4,18 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:simply_internet/features/diagnostics/domain/entities/network_facts.dart';
 import 'package:simply_internet/features/diagnostics/domain/usecases/run_diagnosis.dart';
 import 'package:simply_internet/features/diagnostics/presentation/widgets/technical_details.dart';
+import 'package:simply_internet/l10n/app_localizations.dart';
 
 import 'fakes.dart';
+
+/// Wraps [child] with the localization delegates `AppLocalizations.of`
+/// requires, pinned to English so assertions on literal text stay stable.
+Widget _wrap(Widget child) => MaterialApp(
+  locale: const Locale('en'),
+  localizationsDelegates: AppLocalizations.localizationsDelegates,
+  supportedLocales: AppLocalizations.supportedLocales,
+  home: Scaffold(body: child),
+);
 
 void main() {
   group('TechnicalDetails', () {
@@ -14,11 +24,7 @@ void main() {
     testWidgets('renders headings and bullets, not raw markers', (
       tester,
     ) async {
-      await tester.pumpWidget(
-        const MaterialApp(
-          home: Scaffold(body: TechnicalDetails(log: log)),
-        ),
-      );
+      await tester.pumpWidget(_wrap(const TechnicalDetails(log: log)));
       await tester.tap(find.text('Technical details'));
       await tester.pumpAndSettle();
 
@@ -45,11 +51,7 @@ void main() {
         ),
       );
 
-      await tester.pumpWidget(
-        const MaterialApp(
-          home: Scaffold(body: TechnicalDetails(log: log)),
-        ),
-      );
+      await tester.pumpWidget(_wrap(const TechnicalDetails(log: log)));
       await tester.tap(find.text('Technical details'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Copy'));
@@ -63,15 +65,13 @@ void main() {
       tester,
     ) async {
       await tester.pumpWidget(
-        const MaterialApp(
-          home: Scaffold(
-            body: TechnicalDetails(
-              log: [
-                '- Internet: reachable',
-                '  - Captive sign-in page: none',
-                'a plain line with no marker',
-              ],
-            ),
+        _wrap(
+          const TechnicalDetails(
+            log: [
+              '- Internet: reachable',
+              '  - Captive sign-in page: none',
+              'a plain line with no marker',
+            ],
           ),
         ),
       );
@@ -106,11 +106,7 @@ void main() {
     });
 
     testWidgets('shows nothing when there is no log', (tester) async {
-      await tester.pumpWidget(
-        const MaterialApp(
-          home: Scaffold(body: TechnicalDetails(log: [])),
-        ),
-      );
+      await tester.pumpWidget(_wrap(const TechnicalDetails(log: [])));
       expect(find.text('Technical details'), findsNothing);
     });
   });

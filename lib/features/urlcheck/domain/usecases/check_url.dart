@@ -1,6 +1,8 @@
 import 'package:simply_internet/features/urlcheck/domain/entities/url_check_report.dart';
 import 'package:simply_internet/features/urlcheck/domain/entities/url_facts.dart';
 import 'package:simply_internet/features/urlcheck/domain/repositories/url_inspector.dart';
+import 'package:simply_internet/l10n/app_localizations.dart';
+import 'package:simply_internet/l10n/app_localizations_en.dart';
 
 /// Thrown when the text the user typed cannot be understood as a web address.
 class InvalidUrlException implements Exception {
@@ -25,40 +27,30 @@ typedef Conclusion = ({
 /// finding only ever says what is wrong, and everything the user could do
 /// about it ends up in the report's advice list, so the UI can show one "What
 /// to do" block instead of hiding actions inside paragraphs of cause.
+///
+/// Every user-facing string is resolved from an injected [AppLocalizations];
+/// [call] falls back to English when none is passed, so the pure
+/// fact-to-verdict tests need no localization setup.
 class CheckUrl {
   const CheckUrl(this._inspector);
 
   final UrlInspector _inspector;
 
-  /// Instruction sets held as constants because the lint rules forbid
-  /// wrapped strings inside a list literal, and every one of these is longer
-  /// than a single line.
-  static const List<String> _certificateAdvice = [
-    'Do not enter passwords or card details on this site.',
-    _clockAdvice,
-    'If the clock is right, only the site owner can fix it.',
+  List<String> _certificateAdvice(AppLocalizations l10n) => [
+    l10n.urlAdviceCertNoPasswords,
+    l10n.urlAdviceCheckClock,
+    l10n.urlAdviceCertOwnerFix,
   ];
-  static const String _clockAdvice =
-      'Check that your phone date and time are correct — a wrong clock makes '
-      'good certificates look broken.';
-  static const List<String> _noSuchAddressAdvice = [
-    'Check the spelling of the address.',
-    _unregisteredAdvice,
+
+  List<String> _noSuchAddressAdvice(AppLocalizations l10n) => [
+    l10n.urlAdviceCheckSpelling,
+    l10n.urlAdviceUnregistered,
   ];
-  static const String _unregisteredAdvice =
-      'If it is spelled correctly, the name is no longer registered — there '
-      'is nothing to fix on your side.';
-  static const List<String> _expiredAdvice = [_ownerRenewAdvice];
-  static const String _ownerRenewAdvice =
-      'Nothing on your side can fix this — only the site owner can renew the '
-      'name.';
-  static const List<String> _blockedAdvice = [_tryMobileAdvice, _vpnAdvice];
-  static const List<String> _refusedAdvice = [_tryMobileAdvice, _vpnAdvice];
-  static const String _tryMobileAdvice =
-      'Try the same address over mobile data: that skips your Wi-Fi network '
-      'and its filters.';
-  static const String _vpnAdvice =
-      'If it still fails, only a VPN set to another country gets around it.';
+
+  List<String> _blockedAdvice(AppLocalizations l10n) => [
+    l10n.urlAdviceTryMobile,
+    l10n.urlAdviceVpn,
+  ];
 
   /// Standard web ports probed when the user did not specify one, so we can
   /// spot a service that is only listening on an alternate port.
@@ -77,8 +69,13 @@ class CheckUrl {
   /// data is the whole point of the cross-medium re-check, and comparing two
   /// reports means nothing if neither says which link it came from. Null when
   /// the link could not be read, which the log states rather than guessing.
-  Future<UrlCheckReport> call(String rawUrl, {String? medium}) async {
-    final url = _normalise(rawUrl);
+  Future<UrlCheckReport> call(
+    String rawUrl, {
+    String? medium,
+    AppLocalizations? l10n,
+  }) async {
+    final loc = l10n ?? AppLocalizationsEn();
+    final url = _normalise(rawUrl, loc);
     final host = url.host;
     final isHttps = url.scheme == 'https';
     final hostIsIp = _isIpLiteral(host);
@@ -140,6 +137,7 @@ class CheckUrl {
     // with a single set of actions, so the user never has to choose between
     // several contradictory explanations of one failure.
     final conclusion = _conclude(
+      loc: loc,
       url: url,
       hostIsIp: hostIsIp,
       dnsOk: dnsOk,
@@ -154,6 +152,7 @@ class CheckUrl {
 
     // Only extras that add something the conclusion does not already give.
     final extras = _extras(
+      loc: loc,
       url: url,
       fetch: fetch,
       domain: domain,
@@ -168,6 +167,7 @@ class CheckUrl {
       findings: [conclusion.finding, ...extras.findings],
       advice: [...conclusion.advice, ...extras.advice],
       log: _log(
+        loc: loc,
         url: url,
         medium: medium,
         registrable: registrable,
@@ -189,6 +189,7 @@ class CheckUrl {
   /// ran — including each vantage point the site was opened from — so the
   /// user can see exactly what was tested rather than a bare count.
   List<String> _log({
+    required AppLocalizations loc,
     required Uri url,
     required String? medium,
     required String? registrable,
@@ -203,101 +204,121 @@ class CheckUrl {
   }) {
     final elapsed = fetch.elapsedMs != null ? '${fetch.elapsedMs} ms' : '-';
     final registration = domain.checked
-        ? 'exists ${_yesNo(domain.exists)}, '
-              'expired ${_yesNo(domain.expired, goodWhenTrue: false)}, '
-              'expiry ${_date(domain.expiry)}'
-        : 'not checked';
+        ? loc.urlLogRegistrationDetail(
+            _yesNo(loc, domain.exists),
+            _yesNo(loc, domain.expired, goodWhenTrue: false),
+            _date(domain.expiry),
+          )
+        : loc.urlLogNotChecked;
     final String certificate;
     if (!tls.checked) {
-      certificate = 'not checked';
+      certificate = loc.urlLogNotChecked;
     } else if (tls.valid) {
-      certificate = 'valid, expires ${_date(tls.expiry)}';
+      certificate = loc.urlLogCertValid(_date(tls.expiry));
     } else {
-      certificate = 'not trusted${tls.issue != null ? " (${tls.issue})" : ""}';
+      certificate = tls.issue != null
+          ? loc.urlLogCertNotTrusted(tls.issue!)
+          : loc.urlLogCertNotTrustedNoIssue;
     }
-    final outageSummary =
-        'verdict ${outage.verdict.isEmpty ? "-" : outage.verdict}, '
-        'reached from ${outage.up} of ${outage.total} regions, '
-        'likely blocked in ${outage.likelyBlocked}';
+    final outageSummary = loc.urlLogOutageSummary(
+      outage.verdict.isEmpty ? '-' : outage.verdict,
+      outage.up,
+      outage.total,
+      outage.likelyBlocked,
+    );
     return <String>[
-      '## Address',
-      '- URL: $url',
-      '- Name resolves (DNS): ${_yesNo(dnsOk)}',
-      if (registrable != null) '- Registration ($registrable): $registration',
+      '## ${loc.urlLogHeadAddress}',
+      '- ${loc.urlLogUrl(url.toString())}',
+      '- ${loc.urlLogDnsResolves(_yesNo(loc, dnsOk))}',
+      if (registrable != null)
+        '- ${loc.urlLogRegistration(registrable, registration)}',
       '',
-      '## From this device',
+      '## ${loc.urlLogHeadFromDevice}',
       // First, because it qualifies everything under this heading: the same
       // address can be blocked on one medium and fine on the other.
-      '- Tested over: ${medium ?? "not known"}',
-      '- Opened the page: ${_yesNo(fetch.reached)}',
-      '- Status code: ${fetch.statusCode ?? "-"}',
-      '- Time to answer: $elapsed',
-      if (fetch.finalUrl != null) '- Final address: ${fetch.finalUrl}',
-      if (fetch.error != null) '- Error: ${fetch.error}',
-      if (isHttps) '- Certificate: $certificate',
+      '- ${loc.urlLogTestedOver(medium ?? loc.urlLogNotKnown)}',
+      '- ${loc.urlLogOpenedPage(_yesNo(loc, fetch.reached))}',
+      '- ${loc.urlLogStatusCode(fetch.statusCode?.toString() ?? "-")}',
+      '- ${loc.urlLogTimeToAnswer(elapsed)}',
+      if (fetch.finalUrl != null)
+        '- ${loc.urlLogFinalAddress(fetch.finalUrl!)}',
+      if (fetch.error != null) '- ${loc.urlLogError(fetch.error!)}',
+      if (isHttps) '- ${loc.urlLogCertificate(certificate)}',
       if (ports.isNotEmpty) ...[
         '',
-        '## Ports',
-        for (final p in ports)
-          '- ${p.port} (${p.service}): ${p.open ? "open ✅" : "closed ❌"}',
+        '## ${loc.urlLogHeadPorts}',
+        for (final p in ports) _portLogLine(loc, p),
       ],
       '',
-      '## From other countries (check-host.net)',
+      '## ${loc.urlLogHeadFromCountries}',
       if (!regions.available)
-        '- Not available for this check'
+        '- ${loc.urlLogNotAvailableForCheck}'
       else ...[
-        '- Reached from ${regions.reachable} of ${regions.total} locations',
-        for (final probe in regions.probes) _probeLine(probe),
+        '- ${loc.urlLogReachedFromLocations(regions.reachable, regions.total)}',
+        for (final probe in regions.probes) _probeLine(loc, probe),
       ],
       '',
-      '## Independent outage check (${outage.source})',
+      '## ${loc.urlLogHeadOutageCheck(outage.source)}',
       if (!outage.available)
-        '- Not available for this check'
+        '- ${loc.urlLogNotAvailableForCheck}'
       else ...[
-        '- Summary: $outageSummary',
-        for (final probe in outage.probes) _probeLine(probe),
-        if (outage.alternateHost != null) _alternateLine(outage),
+        '- $outageSummary',
+        for (final probe in outage.probes) _probeLine(loc, probe),
+        if (outage.alternateHost != null) _alternateLine(loc, outage),
       ],
     ];
   }
 
-  static String _probeLine(RegionProbe probe) {
-    final status = probe.statusCode != null ? ' (${probe.statusCode})' : '';
-    return '  - ${probe.location}: '
-        '${probe.reachable ? "reached ✅" : "failed ❌"}$status';
+  static String _portLogLine(AppLocalizations loc, UrlPortResult p) {
+    final state = p.open ? loc.urlLogPortOpen : loc.urlLogPortClosed;
+    return '- ${loc.urlLogPortLine(p.port, p.service, state)}';
   }
 
-  static String _alternateLine(OutageReport outage) =>
-      '- Alternate address ${outage.alternateHost}: '
-      '${outage.alternateHostUp ? "reached ✅" : "failed ❌"}';
+  static String _probeLine(AppLocalizations loc, RegionProbe probe) {
+    final status = probe.statusCode != null
+        ? loc.urlLogProbeStatusSuffix(probe.statusCode!)
+        : '';
+    final state = probe.reachable
+        ? loc.urlLogProbeReached
+        : loc.urlLogProbeFailed;
+    return '  - ${loc.urlLogProbeLine(probe.location, state, status)}';
+  }
+
+  static String _alternateLine(AppLocalizations loc, OutageReport outage) {
+    final state = outage.alternateHostUp
+        ? loc.urlLogProbeReached
+        : loc.urlLogProbeFailed;
+    return '- ${loc.urlLogAlternate(outage.alternateHost!, state)}';
+  }
 
   /// A yes/no answer with the mark on the *healthy* outcome rather than the
   /// affirmative one: a registration that has expired is bad news, so it reads
   /// "yes ❌" and a live one reads "no ✅".
-  static String _yesNo(bool value, {bool goodWhenTrue = true}) =>
-      '${value ? "yes" : "no"} ${value == goodWhenTrue ? "✅" : "❌"}';
+  static String _yesNo(
+    AppLocalizations loc,
+    bool value, {
+    bool goodWhenTrue = true,
+  }) =>
+      '${value ? loc.logYes : loc.logNo} '
+      '${value == goodWhenTrue ? "✅" : "❌"}';
 
   static String _date(DateTime? value) =>
       value == null ? '-' : value.toIso8601String().split('T').first;
 
   // ── URL parsing ────────────────────────────────────────────────────────
 
-  Uri _normalise(String raw) {
+  Uri _normalise(String raw, AppLocalizations loc) {
     var text = raw.trim();
     if (text.isEmpty) {
-      throw const InvalidUrlException('Please paste a website address first.');
+      throw InvalidUrlException(loc.urlErrorEmpty);
     }
     if (!text.contains('://')) text = 'https://$text';
     final uri = Uri.tryParse(text);
     if (uri == null || uri.host.isEmpty) {
-      throw const InvalidUrlException(
-        'That does not look like a valid web address.',
-      );
+      throw InvalidUrlException(loc.urlErrorInvalid);
     }
     if (uri.scheme != 'http' && uri.scheme != 'https') {
-      throw const InvalidUrlException(
-        'Only http and https addresses can be checked.',
-      );
+      throw InvalidUrlException(loc.urlErrorScheme);
     }
     return uri;
   }
@@ -381,6 +402,7 @@ class CheckUrl {
   /// answers nobody is an outage, and a name that answers others but not us
   /// is a block on our side.
   Conclusion _conclude({
+    required AppLocalizations loc,
     required Uri url,
     required bool hostIsIp,
     required bool dnsOk,
@@ -396,96 +418,96 @@ class CheckUrl {
     // refused connection, and even on a page that did load it is the one
     // thing the user must know before typing a password.
     if (tls.checked && !tls.valid) {
+      final issueSuffix = tls.issue != null
+          ? loc.urlCertIssueSuffix(tls.issue!)
+          : '';
       final consequence = fetch.isSuccess
-          ? 'The page still loaded, but nothing you send to it is safe.'
-          : 'The connection was refused because of it.';
+          ? loc.urlCertConsequenceLoaded
+          : loc.urlCertConsequenceRefused;
       return (
         finding: UrlFinding(
           severity: fetch.isSuccess ? UrlSeverity.warning : UrlSeverity.problem,
-          title: 'Security certificate problem.',
-          detail:
-              'The site HTTPS certificate could not be trusted'
-              '${tls.issue != null ? " (${tls.issue})" : ""}. $consequence',
+          title: loc.urlFindingCertTitle,
+          detail: loc.urlFindingCertDetail(issueSuffix, consequence),
         ),
-        headline: 'The site security certificate is not trusted',
-        advice: _certificateAdvice,
+        headline: loc.urlHeadlineCertNotTrusted,
+        advice: _certificateAdvice(loc),
       );
     }
-    if (fetch.isSuccess) return _workingConclusion(fetch, regions, outage);
+    if (fetch.isSuccess) {
+      return _workingConclusion(loc, fetch, regions, outage);
+    }
     // The server itself answered: its status code is the reason, and no
     // outside opinion may contradict a reply we hold in our hands.
     if (fetch.reached && fetch.statusCode != null) {
-      final status = _httpStatus(fetch.statusCode!, fetch.retryAfterSeconds);
+      final status = _httpStatus(
+        loc,
+        fetch.statusCode!,
+        fetch.retryAfterSeconds,
+      );
       return (
         finding: status.finding,
-        headline: 'The website answered with a problem (${fetch.statusCode}).',
+        headline: loc.urlHeadlineAnswered(fetch.statusCode!),
         advice: status.advice,
       );
     }
-    if (upElsewhere) return _blockedConclusion(regions, outage);
+    if (upElsewhere) return _blockedConclusion(loc, regions, outage);
     if (!hostIsIp && !dnsOk && !existsEvidence) {
       final registry = domain.checked && !domain.exists
-          ? ' The domain registry has no registration for it either.'
+          ? loc.urlRegistryNoRecord
           : '';
       return (
         finding: UrlFinding(
           severity: UrlSeverity.problem,
-          title: "The address doesn't exist",
-          detail:
-              'The website name could not be found anywhere on the Internet.'
-              '$registry',
+          title: loc.urlFindingNotFoundTitle,
+          detail: loc.urlFindingNotFoundDetail(registry),
         ),
-        headline: "This web address can't be found.",
-        advice: _noSuchAddressAdvice,
+        headline: loc.urlHeadlineNotFound,
+        advice: _noSuchAddressAdvice(loc),
       );
     }
     if (domain.expired) {
       return (
         finding: UrlFinding(
           severity: UrlSeverity.problem,
-          title: 'Domain registration has expired.',
-          detail:
-              'The owner let the domain lapse'
-              '${_expirySuffix(domain.expiry)}. Until they renew it, the '
-              'site will not work for anyone.',
+          title: loc.urlFindingExpiredTitle,
+          detail: loc.urlFindingExpiredDetail(
+            _expirySuffix(loc, domain.expiry),
+          ),
         ),
-        headline: 'The site domain has expired',
-        advice: _expiredAdvice,
+        headline: loc.urlHeadlineExpired,
+        advice: [loc.urlAdviceOwnerRenew],
       );
     }
     if (regions.downEverywhere || outage.downEverywhere) {
-      final byRegions = '${regions.total} test locations';
-      final byOutage = '${outage.total} regions of ${outage.source}';
-      final sources = <String>[
-        if (regions.downEverywhere) byRegions,
-        if (outage.downEverywhere) byOutage,
-      ].join(' and ');
+      final parts = <String>[
+        if (regions.downEverywhere)
+          loc.urlSourceTestLocations(regions.total),
+        if (outage.downEverywhere)
+          loc.urlSourceOutageRegions(outage.total, outage.source),
+      ];
+      final sources = parts.length == 2
+          ? loc.urlSourceJoin(parts[0], parts[1])
+          : parts.join();
       return (
         finding: UrlFinding(
           severity: UrlSeverity.problem,
-          detail:
-              'It could not be opened from $sources either, so the site is '
-              'down for everyone — not just you.',
+          detail: loc.urlFindingDownEverywhereDetail(sources),
         ),
-        headline: 'The website is down for everyone',
-        advice: const [
-          'Wait and try again later — there is nothing to fix on your side.',
-        ],
+        headline: loc.urlHeadlineDownForEveryone,
+        advice: [loc.urlAdviceWaitNothingToFix],
       );
     }
+    final err = fetch.error != null
+        ? loc.urlErrorParenthetical(fetch.error!)
+        : '';
     return (
       finding: UrlFinding(
         severity: UrlSeverity.problem,
-        detail:
-            'The address exists, but no reply came back from the server'
-            '${fetch.error != null ? " (${fetch.error})" : ""}. It is either '
-            'switched off or unreachable right now.',
+        detail: loc.urlFindingNotRespondingDetail(err),
       ),
-      headline: 'The website is not responding',
-      advice: const [
-        'Try again in a few minutes.',
-        'Try the same address over mobile data to rule out your network.',
-      ],
+      headline: loc.urlHeadlineNotResponding,
+      advice: [loc.urlAdviceTryAgainMinutes, loc.urlAdviceTryMobileRuleOut],
     );
   }
 
@@ -493,79 +515,74 @@ class CheckUrl {
   /// single finding when present — a warning replaces the reassurance instead
   /// of sitting beside it, so a mixed result reads as one message.
   Conclusion _workingConclusion(
+    AppLocalizations loc,
     HttpFetchResult fetch,
     RegionReport regions,
     OutageReport outage,
   ) {
+    final code = fetch.statusCode!;
     final blockedCountries = regions.blockedCountries;
     final restricted = blockedCountries.isNotEmpty || outage.likelyBlocked > 0;
     if (restricted) {
       final where = blockedCountries.isNotEmpty
-          ? ' It was refused from ${blockedCountries.join(", ")}.'
-          : ' An independent check (${outage.source}) found it blocked in '
-                '${outage.likelyBlocked} of its ${outage.total} regions.';
+          ? loc.urlBlockedFromCountries(blockedCountries.join(', '))
+          : loc.urlBlockedByOutage(
+              outage.source,
+              outage.likelyBlocked,
+              outage.total,
+            );
       return (
         finding: UrlFinding(
           severity: UrlSeverity.warning,
-          title: 'Works for you, but blocked in some countries.',
-          detail:
-              'The page opened normally on your device (code '
-              '${fetch.statusCode}), so nothing is wrong with your '
-              'connection.$where If someone abroad cannot open it, that is '
-              'the site geo-fencing them, not a fault either of you can '
-              'fix.',
+          title: loc.urlFindingWorksBlockedTitle,
+          detail: loc.urlFindingWorksBlockedDetail(code, where),
         ),
-        headline: 'The website works for you',
+        headline: loc.urlHeadlineWorksForYou,
         advice: const [],
       );
     }
     final elsewhere = outage.available && outage.up > 0
-        ? ' An independent check (${outage.source}) also reached it from '
-              '${outage.up} of ${outage.total} regions.'
+        ? loc.urlWorksAlsoOutage(outage.source, outage.up, outage.total)
         : regions.available && regions.reachableFromSome
-        ? ' It also loads from ${regions.reachable} of ${regions.total} other '
-              'countries.'
+        ? loc.urlWorksAlsoRegions(regions.reachable, regions.total)
         : '';
     return (
       finding: UrlFinding(
         severity: UrlSeverity.ok,
-        detail:
-            'The page answered normally (code ${fetch.statusCode}) from your '
-            'device.$elsewhere',
+        detail: loc.urlFindingWorksDetail(code, elsewhere),
       ),
-      headline: 'The website works',
+      headline: loc.urlHeadlineWorks,
       advice: const [],
     );
   }
 
   /// The site is proven up elsewhere but not for us: one message covers both
   /// readings of "you" — this device/network, and this country.
-  Conclusion _blockedConclusion(RegionReport regions, OutageReport outage) {
-    final byRegions =
-        'it loads from ${regions.reachable} of ${regions.total} other '
-        'countries';
-    final byOutage =
-        'an independent check (${outage.source}) reached it from '
-        '${outage.up} of ${outage.total} regions';
-    final evidence = <String>[
-      if (regions.available && regions.reachableFromSome) byRegions,
-      if (outage.available && outage.up > 0) byOutage,
-    ].join(', and ');
+  Conclusion _blockedConclusion(
+    AppLocalizations loc,
+    RegionReport regions,
+    OutageReport outage,
+  ) {
+    final parts = <String>[
+      if (regions.available && regions.reachableFromSome)
+        loc.urlEvidenceRegions(regions.reachable, regions.total),
+      if (outage.available && outage.up > 0)
+        loc.urlEvidenceOutage(outage.source, outage.up, outage.total),
+    ];
+    final evidence = parts.length == 2
+        ? loc.urlEvidenceJoin(parts[0], parts[1])
+        : parts.join();
     final blocked = regions.blockedCountries.isNotEmpty
-        ? ' Countries where it also failed: '
-              '${regions.blockedCountries.join(", ")}.'
+        ? loc.urlAlsoFailedCountries(regions.blockedCountries.join(', '))
         : '';
     return (
       finding: UrlFinding(
         severity: UrlSeverity.warning,
-        title: 'Blocked on your connection or in your country.',
-        detail:
-            'The site is up — $evidence — but nothing came back on your '
-            'connection.$blocked Either the site refuses visitors from your '
-            'country, or your network blocks it.',
+        title: loc.urlFindingBlockedTitle,
+        detail: loc.urlFindingBlockedDetail(evidence, blocked),
       ),
-      headline: 'The website seems blocked for you',
-      advice: _blockedAdvice,
+      headline: loc.urlHeadlineBlockedForYou,
+      advice: _blockedAdvice(loc),
     );
   }
 
@@ -574,6 +591,7 @@ class CheckUrl {
   /// and a registration about to lapse. Each one contributes an explanation, an
   /// instruction, or both — never a mixture of the two in one sentence.
   ({List<UrlFinding> findings, List<String> advice}) _extras({
+    required AppLocalizations loc,
     required Uri url,
     required HttpFetchResult fetch,
     required DomainInfo domain,
@@ -587,13 +605,11 @@ class CheckUrl {
       findings.add(
         UrlFinding(
           severity: UrlSeverity.warning,
-          title: 'The website is very slow.',
-          detail:
-              'It took ${(ms / 1000).toStringAsFixed(1)} seconds to respond. '
-              'The site or your connection may be congested.',
+          title: loc.urlFindingSlowTitle,
+          detail: loc.urlFindingSlowDetail((ms / 1000).toStringAsFixed(1)),
         ),
       );
-      advice.add('Try again later, or over a different network.');
+      advice.add(loc.urlAdviceSlow);
     }
     if (!fetch.isSuccess) {
       final alt = outage.alternateHost;
@@ -601,27 +617,26 @@ class CheckUrl {
         findings.add(
           UrlFinding(
             severity: UrlSeverity.info,
-            title: 'A similar address does work.',
-            detail:
-                'The exact address did not work, but "$alt" did. You may '
-                'have left off (or added) a "www.".',
+            title: loc.urlFindingAltTitle,
+            detail: loc.urlFindingAltDetail(alt),
           ),
         );
-        advice.add('Open $alt instead.');
+        advice.add(loc.urlAdviceOpenAlt(alt));
       }
-      final port = _portHint(url, ports);
+      final port = _portHint(loc, url, ports);
       if (port != null) {
         findings.add(port.finding);
         advice.add(port.advice);
       }
     }
-    if (fetch.isSuccess) findings.addAll(_expiryHint(domain));
+    if (fetch.isSuccess) findings.addAll(_expiryHint(loc, domain));
     return (findings: findings, advice: advice);
   }
 
   /// Suggests the alternate web port when the usual one is closed but the
   /// alternate is open — the only case where a port number helps the user.
   ({UrlFinding finding, String advice})? _portHint(
+    AppLocalizations loc,
     Uri url,
     List<UrlPortResult> ports,
   ) {
@@ -637,18 +652,17 @@ class CheckUrl {
     return (
       finding: UrlFinding(
         severity: UrlSeverity.info,
-        title: 'The service may be on an unusual port.',
-        detail:
-            'The usual port $mainPort is closed, but port $altPort is open.',
+        title: loc.urlFindingPortTitle,
+        detail: loc.urlFindingPortDetail(mainPort, altPort),
       ),
-      advice:
-          'Try the address with the port added: '
-          '${url.scheme}://${url.host}:$altPort',
+      advice: loc.urlAdviceTryPort(
+        '${url.scheme}://${url.host}:$altPort',
+      ),
     );
   }
 
   /// Warns the owner-side risk of a registration lapsing within a month.
-  List<UrlFinding> _expiryHint(DomainInfo domain) {
+  List<UrlFinding> _expiryHint(AppLocalizations loc, DomainInfo domain) {
     final expiry = domain.expiry;
     if (!domain.checked || expiry == null || domain.expired) return const [];
     final days = expiry.difference(DateTime.now()).inDays;
@@ -656,10 +670,8 @@ class CheckUrl {
     return [
       UrlFinding(
         severity: UrlSeverity.info,
-        title: 'Domain expires soon.',
-        detail:
-            'The domain registration expires in $days day(s). That is the '
-            'site owner concern, not a fault on your side.',
+        title: loc.urlFindingExpiresSoonTitle,
+        detail: loc.urlFindingExpiresSoonDetail(days),
       ),
     ];
   }
@@ -668,96 +680,82 @@ class CheckUrl {
   /// advice), kept apart so the instruction is never buried in the
   /// explanation.
   ({UrlFinding finding, List<String> advice}) _httpStatus(
+    AppLocalizations loc,
     int code,
     int? retryAfterSeconds,
   ) {
     switch (code) {
       case 401:
         return (
-          finding: const UrlFinding(
+          finding: UrlFinding(
             severity: UrlSeverity.warning,
-            title: 'The site works but needs you to log in first.',
-            detail: 'Sign-in required (401).',
+            title: loc.urlStatus401Title,
+            detail: loc.urlStatus401Detail,
           ),
-          advice: const ['Open it in a browser and sign in with your account.'],
+          advice: [loc.urlAdvice401],
         );
       case 403:
         return (
-          finding: const UrlFinding(
+          finding: UrlFinding(
             severity: UrlSeverity.problem,
-            title: 'The server refused the request',
-            detail:
-                'Access denied (403). This is often geo-fencing, a '
-                'network/firewall block, or a block on automated access.',
+            title: loc.urlStatus403Title,
+            detail: loc.urlStatus403Detail,
           ),
-          advice: _refusedAdvice,
+          advice: [loc.urlAdviceTryMobile, loc.urlAdviceVpn],
         );
       case 404:
         return (
-          finding: const UrlFinding(
+          finding: UrlFinding(
             severity: UrlSeverity.warning,
-            title: 'Page not found (404).',
-            detail: 'The server is up but this exact page does not exist.',
+            title: loc.urlStatus404Title,
+            detail: loc.urlStatus404Detail,
           ),
-          advice: const [
-            'Check the address for a typo.',
-            'Open the site home page and navigate from there.',
-          ],
+          advice: [loc.urlAdvice404Typo, loc.urlAdvice404Home],
         );
       case 408:
         return (
-          finding: const UrlFinding(
+          finding: UrlFinding(
             severity: UrlSeverity.warning,
-            title: 'Request timed out (408).',
-            detail: 'The server was too slow to accept the request.',
+            title: loc.urlStatus408Title,
+            detail: loc.urlStatus408Detail,
           ),
-          advice: const [
-            'Try again; if it keeps timing out the site is overloaded.',
-          ],
+          advice: [loc.urlAdvice408],
         );
       case 429:
         // The server usually says how long to wait; quoting its own number
         // beats a made-up "a minute".
         final wait = retryAfterSeconds == null
-            ? 'Wait a minute and try again.'
-            : 'Wait ${_waitText(retryAfterSeconds)} — that is how long the '
-                  'site asked — and try again.';
+            ? loc.urlWaitGeneric
+            : loc.urlWaitQuoted(_waitText(loc, retryAfterSeconds));
         return (
-          finding: const UrlFinding(
+          finding: UrlFinding(
             severity: UrlSeverity.warning,
-            title: 'The site is refusing this many requests from you.',
-            detail: 'Too many requests (429).',
+            title: loc.urlStatus429Title,
+            detail: loc.urlStatus429Detail,
           ),
-          advice: [wait, 'Avoid refreshing repeatedly in the meantime.'],
+          advice: [wait, loc.urlAdvice429NoRefresh],
         );
       case 451:
         return (
-          finding: const UrlFinding(
+          finding: UrlFinding(
             severity: UrlSeverity.warning,
-            title: 'The site is legally barred from serving your region.',
-            detail:
-                'Blocked for legal reasons (451). The site is not broken and '
-                'nothing on your side is wrong.',
+            title: loc.urlStatus451Title,
+            detail: loc.urlStatus451Detail,
           ),
-          advice: const [
-            'A VPN set to another country is the only way around it.',
-          ],
+          advice: [loc.urlAdvice451],
         );
       case 500:
       case 502:
       case 503:
       case 504:
         final wait = retryAfterSeconds == null
-            ? 'Wait a few minutes and try again.'
-            : 'Wait ${_waitText(retryAfterSeconds)} — that is how long the '
-                  'site asked — and try again.';
+            ? loc.urlWaitGeneric
+            : loc.urlWaitQuoted(_waitText(loc, retryAfterSeconds));
         return (
           finding: UrlFinding(
             severity: UrlSeverity.problem,
-            title: 'The problem is on the website end, not yours.',
-            detail:
-                'The website has a server error ($code). It may be down or '
-                'under maintenance.',
+            title: loc.urlStatus5xxTitle,
+            detail: loc.urlStatus5xxDetail(code),
           ),
           advice: [wait],
         );
@@ -765,21 +763,21 @@ class CheckUrl {
         return (
           finding: UrlFinding(
             severity: UrlSeverity.info,
-            title: 'The site answered with an unusual code.',
-            detail: 'Unexpected response ($code).',
+            title: loc.urlStatusDefaultTitle,
+            detail: loc.urlStatusDefaultDetail(code),
           ),
-          advice: const ['Try opening it in a normal browser — it may work.'],
+          advice: [loc.urlAdviceDefaultStatus],
         );
     }
   }
 
   /// "45 seconds", "3 minutes", "2 hours" — the server's own wait, in words a
   /// person can act on.
-  static String _waitText(int seconds) {
-    if (seconds < 90) return '$seconds seconds';
+  static String _waitText(AppLocalizations loc, int seconds) {
+    if (seconds < 90) return loc.urlWaitSeconds(seconds);
     final minutes = (seconds / 60).round();
-    if (minutes < 90) return '$minutes minutes';
-    return '${(minutes / 60).round()} hours';
+    if (minutes < 90) return loc.urlWaitMinutes(minutes);
+    return loc.urlWaitHours((minutes / 60).round());
   }
 
   UrlPortResult? _portResult(List<UrlPortResult> ports, int port) {
@@ -789,9 +787,8 @@ class CheckUrl {
     return null;
   }
 
-  String _expirySuffix(DateTime? expiry) {
+  String _expirySuffix(AppLocalizations loc, DateTime? expiry) {
     if (expiry == null) return '';
-    final d = expiry.toIso8601String().split('T').first;
-    return ' (expired on $d)';
+    return loc.urlExpirySuffix(_date(expiry));
   }
 }

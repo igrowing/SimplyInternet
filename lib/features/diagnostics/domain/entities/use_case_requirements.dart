@@ -1,6 +1,24 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter/foundation.dart';
 
+/// Stable identifier for an everyday activity the diagnosis reports on.
+///
+/// Kept separate from the display name so the decision logic can compare
+/// identities while the wording is resolved per locale (see `useCaseName` in
+/// the ARB files and `AppLocalizations`).
+enum UseCaseId {
+  musicStreaming,
+  voiceCalls,
+  webBrowsing,
+  losslessMusic,
+  videoCalls720,
+  teamGames,
+  videoCallsHd,
+  hdVideo,
+  fastGames,
+  video4k,
+}
+
 /// What one everyday activity needs from the connection.
 ///
 /// Throughput answers only "is this enough for X?" — it can never prove
@@ -10,6 +28,7 @@ import 'package:flutter/foundation.dart';
 @immutable
 class UseCaseRequirement extends Equatable {
   const UseCaseRequirement({
+    required this.id,
     required this.name,
     required this.downMbps,
     required this.upMbps,
@@ -18,7 +37,12 @@ class UseCaseRequirement extends Equatable {
     this.maxLossPercent,
   });
 
-  /// User-facing name, used verbatim in the verdict sentence.
+  /// Stable identity, used by the decision logic and to resolve the localized
+  /// display name.
+  final UseCaseId id;
+
+  /// English fallback name. User-facing text now comes from `AppLocalizations`
+  /// via [id]; this is kept for tests and non-localized contexts.
   final String name;
 
   final double downMbps;
@@ -29,6 +53,7 @@ class UseCaseRequirement extends Equatable {
 
   @override
   List<Object?> get props => [
+    id,
     name,
     downMbps,
     upMbps,
@@ -47,12 +72,14 @@ class UseCaseRequirement extends Equatable {
 /// the app can advise switching the camera off when a video call cannot fit.
 const List<UseCaseRequirement> kUseCaseRequirements = [
   UseCaseRequirement(
+    id: UseCaseId.musicStreaming,
     name: 'music streaming',
     downMbps: 0.5,
     upMbps: 0.05,
     maxLossPercent: 2,
   ),
   UseCaseRequirement(
+    id: UseCaseId.voiceCalls,
     name: 'voice calls',
     downMbps: 0.1,
     upMbps: 0.1,
@@ -61,6 +88,7 @@ const List<UseCaseRequirement> kUseCaseRequirements = [
     maxLossPercent: 1,
   ),
   UseCaseRequirement(
+    id: UseCaseId.webBrowsing,
     name: 'web browsing',
     downMbps: 2,
     upMbps: 0.5,
@@ -69,12 +97,14 @@ const List<UseCaseRequirement> kUseCaseRequirements = [
     maxLossPercent: 2,
   ),
   UseCaseRequirement(
+    id: UseCaseId.losslessMusic,
     name: 'lossless music',
     downMbps: 2,
     upMbps: 0.05,
     maxLossPercent: 2,
   ),
   UseCaseRequirement(
+    id: UseCaseId.videoCalls720,
     name: 'video calls (720p)',
     downMbps: 2.6,
     upMbps: 1.8,
@@ -83,6 +113,7 @@ const List<UseCaseRequirement> kUseCaseRequirements = [
     maxLossPercent: 1.5,
   ),
   UseCaseRequirement(
+    id: UseCaseId.teamGames,
     name: 'team games',
     downMbps: 3,
     upMbps: 1,
@@ -91,6 +122,7 @@ const List<UseCaseRequirement> kUseCaseRequirements = [
     maxLossPercent: 1,
   ),
   UseCaseRequirement(
+    id: UseCaseId.videoCallsHd,
     name: 'video calls (HD)',
     downMbps: 4,
     upMbps: 3,
@@ -99,6 +131,7 @@ const List<UseCaseRequirement> kUseCaseRequirements = [
     maxLossPercent: 1,
   ),
   UseCaseRequirement(
+    id: UseCaseId.hdVideo,
     name: 'HD video (1080p)',
     downMbps: 6,
     upMbps: 0.1,
@@ -107,6 +140,7 @@ const List<UseCaseRequirement> kUseCaseRequirements = [
     maxLossPercent: 1,
   ),
   UseCaseRequirement(
+    id: UseCaseId.fastGames,
     name: 'fast online games',
     downMbps: 5,
     upMbps: 1,
@@ -115,6 +149,7 @@ const List<UseCaseRequirement> kUseCaseRequirements = [
     maxLossPercent: 0.5,
   ),
   UseCaseRequirement(
+    id: UseCaseId.video4k,
     name: '4K video',
     downMbps: 20,
     upMbps: 0.1,
@@ -124,11 +159,11 @@ const List<UseCaseRequirement> kUseCaseRequirements = [
 ];
 
 /// The activity used for the "turn your camera off" fallback.
-const String kVoiceCallUseCase = 'voice calls';
+const UseCaseId kVoiceCallUseCase = UseCaseId.voiceCalls;
 
 /// Activities that are video calls, so the camera-off advice knows when to
 /// appear.
-const List<String> kVideoCallUseCases = [
-  'video calls (720p)',
-  'video calls (HD)',
+const List<UseCaseId> kVideoCallUseCases = [
+  UseCaseId.videoCalls720,
+  UseCaseId.videoCallsHd,
 ];

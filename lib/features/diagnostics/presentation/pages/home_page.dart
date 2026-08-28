@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
-import 'package:simply_internet/core/theme/theme_controller.dart';
 import 'package:simply_internet/features/diagnostics/presentation/controllers/diagnosis_controller.dart';
 import 'package:simply_internet/features/diagnostics/presentation/widgets/result_view.dart';
+import 'package:simply_internet/features/settings/presentation/pages/settings_page.dart';
 import 'package:simply_internet/features/urlcheck/presentation/controllers/url_check_controller.dart';
 import 'package:simply_internet/features/urlcheck/presentation/widgets/url_check_result_view.dart';
+import 'package:simply_internet/l10n/app_localizations.dart';
 
 /// The single-screen entry point. It offers two functions — a full connection
 /// diagnosis and a single-URL check — and swaps in the relevant progress or
@@ -46,7 +46,7 @@ class _HomePageState extends State<HomePage> {
       appBar: AppBar(
         titleSpacing: 0,
         title: const _AppBarTitle(),
-        actions: const [_ThemeToggleButton()],
+        actions: const [_SettingsAction()],
       ),
       body: SafeArea(
         child: Consumer2<DiagnosisController, UrlCheckController>(
@@ -85,15 +85,16 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _diagnosisBody(DiagnosisController controller) {
+    final l10n = AppLocalizations.of(context);
     switch (controller.status) {
       case DiagnosisStatus.running:
-        return const _RunningView(message: 'Running comprehensive check…');
+        return _RunningView(message: l10n.homeRunningDiagnosis);
       case DiagnosisStatus.done:
         return ResultView(report: controller.report!, controller: controller);
       case DiagnosisStatus.error:
         return _ErrorView(
-          message: controller.error ?? 'Unknown error',
-          onRetry: controller.run,
+          message: controller.error ?? l10n.homeUnknownError,
+          onRetry: () => controller.run(l10n: l10n),
         );
       case DiagnosisStatus.idle:
         return const SizedBox.shrink();
@@ -101,9 +102,10 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _urlBody(UrlCheckController controller) {
+    final l10n = AppLocalizations.of(context);
     switch (controller.status) {
       case UrlCheckStatus.running:
-        return const _RunningView(message: 'Checking the website…');
+        return _RunningView(message: l10n.homeRunningUrlCheck);
       case UrlCheckStatus.done:
         return UrlCheckResultView(
           report: controller.report!,
@@ -111,9 +113,9 @@ class _HomePageState extends State<HomePage> {
         );
       case UrlCheckStatus.error:
         return _ErrorView(
-          message: controller.error ?? 'Unknown error',
+          message: controller.error ?? l10n.homeUnknownError,
           onRetry: controller.reset,
-          retryLabel: 'Back',
+          retryLabel: l10n.commonBack,
         );
       case UrlCheckStatus.idle:
         return const SizedBox.shrink();
@@ -136,10 +138,12 @@ class _IdleView extends StatefulWidget {
 
 class _IdleViewState extends State<_IdleView> {
   final TextEditingController _urlField = TextEditingController();
+  final FocusNode _urlFocus = FocusNode();
 
   @override
   void dispose() {
     _urlField.dispose();
+    _urlFocus.dispose();
     super.dispose();
   }
 
@@ -147,7 +151,7 @@ class _IdleViewState extends State<_IdleView> {
     final text = _urlField.text.trim();
     if (text.isEmpty) return;
     FocusScope.of(context).unfocus();
-    widget.url.check(text);
+    widget.url.check(text, l10n: AppLocalizations.of(context));
   }
 
   @override
@@ -160,10 +164,12 @@ class _IdleViewState extends State<_IdleView> {
         final wide = constraints.maxWidth > 600;
         final diagnose = _DiagnoseGroup(
           compact: wide,
-          onStart: widget.diag.run,
+          onStart: () => widget.diag.run(l10n: AppLocalizations.of(context)),
         );
         final checkUrl = _UrlCheckGroup(
           controller: _urlField,
+          focusNode: _urlFocus,
+          history: widget.url.history,
           onSubmit: _submitUrl,
         );
 
@@ -223,6 +229,7 @@ class _DiagnoseGroup extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
     final iconSize = compact ? 56.0 : 96.0;
     final gap = compact ? 24.0 : 40.0;
     return Column(
@@ -232,7 +239,7 @@ class _DiagnoseGroup extends StatelessWidget {
         Icon(Icons.wifi_find, size: iconSize, color: theme.colorScheme.primary),
         const SizedBox(height: 16),
         Text(
-          'Internet not working?\nUnstable? Works partially?',
+          l10n.homeTitle,
           textAlign: TextAlign.center,
           style: theme.textTheme.titleLarge,
         ),
@@ -243,10 +250,10 @@ class _DiagnoseGroup extends StatelessWidget {
           child: FilledButton.icon(
             onPressed: onStart,
             icon: const Icon(Icons.search, size: 28),
-            label: const Text(
-              'Find the problem and give a solution',
+            label: Text(
+              l10n.homeDiagnoseButton,
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
           ),
         ),
@@ -256,15 +263,33 @@ class _DiagnoseGroup extends StatelessWidget {
 }
 
 /// The single-URL check function: label, URL field, "Check it" button.
+///
+/// The field is an [Autocomplete] over [history]: focusing it (with the field
+/// empty) drops down every address checked before, and typing narrows the
+/// list. Picking one fills the field and runs the check straight away.
 class _UrlCheckGroup extends StatelessWidget {
-  const _UrlCheckGroup({required this.controller, required this.onSubmit});
+  const _UrlCheckGroup({
+    required this.controller,
+    required this.focusNode,
+    required this.history,
+    required this.onSubmit,
+  });
 
   final TextEditingController controller;
+  final FocusNode focusNode;
+  final List<String> history;
   final VoidCallback onSubmit;
+
+  Iterable<String> _suggestions(TextEditingValue value) {
+    final query = value.text.trim().toLowerCase();
+    if (query.isEmpty) return history;
+    return history.where((url) => url.toLowerCase().contains(query));
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
     return Column(
       mainAxisSize: MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.center,
@@ -272,23 +297,37 @@ class _UrlCheckGroup extends StatelessWidget {
         Icon(Icons.link, size: 56, color: theme.colorScheme.primary),
         const SizedBox(height: 16),
         Text(
-          'A particular website or service not working?\n'
-          'Paste its link (URL) here:',
+          l10n.homeUrlPrompt,
           textAlign: TextAlign.center,
           style: theme.textTheme.titleMedium,
         ),
         const SizedBox(height: 16),
-        TextField(
-          controller: controller,
-          keyboardType: TextInputType.url,
-          textInputAction: TextInputAction.go,
-          autocorrect: false,
-          onSubmitted: (_) => onSubmit(),
-          decoration: const InputDecoration(
-            hintText: 'example.com or https://example.com/page',
-            prefixIcon: Icon(Icons.public),
-            border: OutlineInputBorder(),
-          ),
+        Autocomplete<String>(
+          // Remount when the remembered list changes so a freshly checked
+          // address is in the suggestions the next time the field is opened.
+          key: ValueKey(Object.hashAll(history)),
+          textEditingController: controller,
+          focusNode: focusNode,
+          optionsBuilder: _suggestions,
+          onSelected: (_) => onSubmit(),
+          fieldViewBuilder: (context, textController, node, onFieldSubmitted) {
+            return TextField(
+              controller: textController,
+              focusNode: node,
+              keyboardType: TextInputType.url,
+              textInputAction: TextInputAction.go,
+              autocorrect: false,
+              onSubmitted: (_) {
+                onFieldSubmitted();
+                onSubmit();
+              },
+              decoration: InputDecoration(
+                hintText: l10n.homeUrlHint,
+                prefixIcon: const Icon(Icons.public),
+                border: const OutlineInputBorder(),
+              ),
+            );
+          },
         ),
         const SizedBox(height: 16),
         SizedBox(
@@ -297,9 +336,9 @@ class _UrlCheckGroup extends StatelessWidget {
           child: FilledButton.icon(
             onPressed: onSubmit,
             icon: const Icon(Icons.travel_explore),
-            label: const Text(
-              'Check it',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            label: Text(
+              l10n.homeCheckButton,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
           ),
         ),
@@ -308,57 +347,47 @@ class _UrlCheckGroup extends StatelessWidget {
   }
 }
 
-/// App icon + name with the version shown in a small font underneath.
+/// The gear that opens Settings, shown only on the idle screen. It is hidden
+/// while a diagnosis or URL check is on screen: changing the language from a
+/// result view rebuilds it against a report whose text was frozen in the old
+/// language, so the screen ends up half-translated.
+class _SettingsAction extends StatelessWidget {
+  const _SettingsAction();
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer2<DiagnosisController, UrlCheckController>(
+      builder: (context, diag, url, _) {
+        final busy =
+            diag.status != DiagnosisStatus.idle ||
+            url.status != UrlCheckStatus.idle;
+        if (busy) return const SizedBox.shrink();
+        return IconButton(
+          tooltip: AppLocalizations.of(context).homeSettingsTooltip,
+          icon: const Icon(Icons.settings_outlined),
+          onPressed: () => Navigator.of(
+            context,
+          ).push(MaterialPageRoute<void>(builder: (_) => const SettingsPage())),
+        );
+      },
+    );
+  }
+}
+
+/// App icon + name. The version is shown on the Settings screen instead.
 class _AppBarTitle extends StatelessWidget {
   const _AppBarTitle();
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         const SizedBox(width: 12),
         Image.asset('assets/simplyinternet_fg.png', width: 36, height: 36),
         const SizedBox(width: 10),
-        Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('SimplyInternet'),
-            FutureBuilder<PackageInfo>(
-              future: PackageInfo.fromPlatform(),
-              builder: (context, snapshot) {
-                final version = snapshot.data?.version;
-                return Text(
-                  version == null ? '' : 'v$version',
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                );
-              },
-            ),
-          ],
-        ),
+        const Text('SimplyInternet'),
       ],
-    );
-  }
-}
-
-/// Toggles the app between light and dark. Follows the system theme until the
-/// first tap (see [ThemeController]).
-class _ThemeToggleButton extends StatelessWidget {
-  const _ThemeToggleButton();
-
-  @override
-  Widget build(BuildContext context) {
-    final controller = context.watch<ThemeController>();
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return IconButton(
-      tooltip: isDark ? 'Switch to light theme' : 'Switch to dark theme',
-      icon: Icon(isDark ? Icons.light_mode : Icons.dark_mode),
-      onPressed: () =>
-          controller.toggle(MediaQuery.platformBrightnessOf(context)),
     );
   }
 }
@@ -395,16 +424,20 @@ class _ErrorView extends StatelessWidget {
   const _ErrorView({
     required this.message,
     required this.onRetry,
-    this.retryLabel = 'Try again',
+    this.retryLabel,
   });
 
   final String message;
   final VoidCallback onRetry;
-  final String retryLabel;
+
+  /// Defaults to [AppLocalizations.homeTryAgain]; overridden for the
+  /// URL-check error state, which reads better as "Back".
+  final String? retryLabel;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -414,7 +447,7 @@ class _ErrorView extends StatelessWidget {
             Icon(Icons.error_outline, size: 72, color: theme.colorScheme.error),
             const SizedBox(height: 16),
             Text(
-              'The check could not finish',
+              l10n.homeCheckFailedTitle,
               style: theme.textTheme.titleLarge,
               textAlign: TextAlign.center,
             ),
@@ -424,7 +457,7 @@ class _ErrorView extends StatelessWidget {
             FilledButton.icon(
               onPressed: onRetry,
               icon: const Icon(Icons.refresh),
-              label: Text(retryLabel),
+              label: Text(retryLabel ?? l10n.homeTryAgain),
             ),
           ],
         ),

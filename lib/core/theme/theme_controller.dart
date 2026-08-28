@@ -1,19 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Holds the app-wide light/dark preference. Defaults to [ThemeMode.system]
-/// until the user changes it once, after which the explicit choice is stored
-/// and reused on the next launch.
+/// Holds the app-wide light/dark/system preference. Defaults to
+/// [ThemeMode.system] until the user picks one explicitly in Settings, after
+/// which the choice is stored and reused on the next launch.
 class ThemeController extends ChangeNotifier {
   ThemeController(this._prefs) {
-    switch (_prefs.getString(_key)) {
-      case 'light':
-        _mode = ThemeMode.light;
-      case 'dark':
-        _mode = ThemeMode.dark;
-      default:
-        _mode = ThemeMode.system;
-    }
+    _mode = ThemeMode.values.firstWhere(
+      (m) => m.name == _prefs.getString(_key),
+      orElse: () => ThemeMode.system,
+    );
   }
 
   static const String _key = 'theme_mode';
@@ -24,17 +20,10 @@ class ThemeController extends ChangeNotifier {
 
   ThemeMode get mode => _mode;
 
-  /// Flip between light and dark. On the very first change (while still
-  /// following the system), pick the opposite of [platformBrightness] so the
-  /// tap always produces a visible switch.
-  Future<void> toggle(Brightness platformBrightness) async {
-    final effective = switch (_mode) {
-      ThemeMode.light => Brightness.light,
-      ThemeMode.dark => Brightness.dark,
-      ThemeMode.system => platformBrightness,
-    };
-    _mode = effective == Brightness.dark ? ThemeMode.light : ThemeMode.dark;
+  Future<void> setMode(ThemeMode mode) async {
+    if (mode == _mode) return;
+    _mode = mode;
     notifyListeners();
-    await _prefs.setString(_key, _mode == ThemeMode.dark ? 'dark' : 'light');
+    await _prefs.setString(_key, mode.name);
   }
 }

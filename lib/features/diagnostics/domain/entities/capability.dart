@@ -53,6 +53,8 @@ class UseCaseOutcome extends Equatable {
 
   bool get supported => shortfalls.isEmpty;
 
+  UseCaseId get id => requirement.id;
+
   String get name => requirement.name;
 
   /// The worst miss across all metrics; 1 when supported.
@@ -115,10 +117,10 @@ class CapabilityAssessment extends Equatable {
   /// one piece of advice that rescues someone mid-meeting.
   bool get voiceCallStillFits {
     final videoFails = outcomes.any(
-      (o) => !o.supported && kVideoCallUseCases.contains(o.name),
+      (o) => !o.supported && kVideoCallUseCases.contains(o.id),
     );
     final voiceOk = outcomes.any(
-      (o) => o.supported && o.name == kVoiceCallUseCase,
+      (o) => o.supported && o.id == kVoiceCallUseCase,
     );
     return videoFails && voiceOk;
   }

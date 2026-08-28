@@ -147,4 +147,5 @@ On top of the conclusion, only genuinely extra facts get a mention: a site that 
 ## How to contribute
 
 * [Open an issue](https://github.com/igrowing/SimplyInternet/issues) if you found a bug or want a new feature.
+* **Translate the app into your language** — the whole app, verdicts included, is translatable. See [add_translation.md](add_translation.md) for step-by-step instructions.
 * If you like the app and it makes your life a bit simpler <br><a href="https://www.buymeacoffee.com/igrowing" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/default-orange.png" alt="Buy Me A Coffee" height="41" width="174"></a>

@@ -187,6 +187,7 @@ void main() {
 
   group('UseCaseRequirement', () {
     UseCaseRequirement build({
+      UseCaseId id = UseCaseId.videoCallsHd,
       String name = 'video calls (HD)',
       double downMbps = 4,
       double upMbps = 3,
@@ -194,6 +195,7 @@ void main() {
       double? maxJitterMs = 30,
       double? maxLossPercent = 1,
     }) => UseCaseRequirement(
+      id: id,
       name: name,
       downMbps: downMbps,
       upMbps: upMbps,
@@ -232,18 +234,18 @@ void main() {
     });
 
     test('the call fallbacks point at rows that exist', () {
-      final names = kUseCaseRequirements.map((r) => r.name).toSet();
-      expect(names, contains(kVoiceCallUseCase));
-      expect(names, containsAll(kVideoCallUseCases));
+      final ids = kUseCaseRequirements.map((r) => r.id).toSet();
+      expect(ids, contains(kVoiceCallUseCase));
+      expect(ids, containsAll(kVideoCallUseCases));
       // Voice must be cheaper than video, or "turn your camera off" is not
       // advice, it is just a different way to fail.
       final voice = kUseCaseRequirements.firstWhere(
-        (r) => r.name == kVoiceCallUseCase,
+        (r) => r.id == kVoiceCallUseCase,
       );
       for (final video in kVideoCallUseCases) {
-        final row = kUseCaseRequirements.firstWhere((r) => r.name == video);
-        expect(voice.upMbps, lessThan(row.upMbps), reason: video);
-        expect(voice.downMbps, lessThan(row.downMbps), reason: video);
+        final row = kUseCaseRequirements.firstWhere((r) => r.id == video);
+        expect(voice.upMbps, lessThan(row.upMbps), reason: video.name);
+        expect(voice.downMbps, lessThan(row.downMbps), reason: video.name);
       }
     });
   });

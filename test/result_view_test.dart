@@ -10,6 +10,7 @@ import 'package:simply_internet/features/diagnostics/domain/usecases/run_diagnos
 import 'package:simply_internet/features/diagnostics/presentation/controllers/diagnosis_controller.dart';
 import 'package:simply_internet/features/diagnostics/presentation/widgets/result_view.dart';
 import 'package:simply_internet/features/diagnostics/presentation/widgets/technical_details.dart';
+import 'package:simply_internet/l10n/app_localizations.dart';
 
 import 'fakes.dart';
 
@@ -21,11 +22,13 @@ class _BrokenDeviceActions extends FakeDeviceActions {
 }
 
 const _requirement = UseCaseRequirement(
+  id: UseCaseId.videoCalls720,
   name: 'video calls',
   downMbps: 2,
   upMbps: 2,
 );
 const _lightRequirement = UseCaseRequirement(
+  id: UseCaseId.musicStreaming,
   name: 'music streaming',
   downMbps: 0.5,
   upMbps: 0.05,
@@ -44,14 +47,17 @@ Widget _wrap(DiagnosisReport report, {DeviceActions? actions}) {
     runDiagnosis: RunDiagnosis(FakeNetworkProbe()),
     deviceActions: actions ?? FakeDeviceActions(),
   );
-  return MaterialApp(
-    home: Scaffold(body: ResultView(report: report, controller: controller)),
-  );
+  return _wrapWith(report, controller);
 }
 
 Widget _wrapWith(DiagnosisReport report, DiagnosisController controller) =>
     MaterialApp(
-      home: Scaffold(body: ResultView(report: report, controller: controller)),
+      locale: const Locale('en'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: Scaffold(
+        body: ResultView(report: report, controller: controller),
+      ),
     );
 
 void main() {
@@ -151,12 +157,13 @@ void main() {
 
     testWidgets('counts the activities that fit in the title', (tester) async {
       await tester.pumpWidget(
-        _wrap(
-          const DiagnosisReport(verdict: _verdict, capability: assessment),
-        ),
+        _wrap(const DiagnosisReport(verdict: _verdict, capability: assessment)),
       );
 
-      expect(find.text('What your connection can do (1 of 2)'), findsOneWidget);
+      expect(
+        find.text('Your connection is good for (1 of 2):'),
+        findsOneWidget,
+      );
       // Collapsed by default: the headline already named what matters.
       expect(find.text('video calls'), findsNothing);
     });
@@ -165,15 +172,13 @@ void main() {
       tester,
     ) async {
       await tester.pumpWidget(
-        _wrap(
-          const DiagnosisReport(verdict: _verdict, capability: assessment),
-        ),
+        _wrap(const DiagnosisReport(verdict: _verdict, capability: assessment)),
       );
-      await tester.tap(find.text('What your connection can do (1 of 2)'));
+      await tester.tap(find.text('Your connection is good for (1 of 2):'));
       await tester.pumpAndSettle();
 
       expect(find.text('music streaming'), findsOneWidget);
-      expect(find.text('video calls'), findsOneWidget);
+      expect(find.text('video calls (720p)'), findsOneWidget);
       expect(find.text('upload 0.4 Mbps, jitter 45 ms'), findsOneWidget);
       // A supported activity gets a tick and no explanation to read.
       expect(find.byIcon(Icons.check_circle), findsOneWidget);
@@ -198,24 +203,20 @@ void main() {
           ),
         ),
       );
-      await tester.tap(find.text('What your connection can do (1 of 1)'));
+      await tester.tap(find.text('Your connection is good for (1 of 1):'));
       await tester.pumpAndSettle();
 
       expect(
-        find.text(
-          'Upload could not be measured, therefore not assessed.',
-        ),
+        find.text('Upload could not be measured, therefore not assessed.'),
         findsOneWidget,
       );
     });
 
     testWidgets('leaves the note out when upload was measured', (tester) async {
       await tester.pumpWidget(
-        _wrap(
-          const DiagnosisReport(verdict: _verdict, capability: assessment),
-        ),
+        _wrap(const DiagnosisReport(verdict: _verdict, capability: assessment)),
       );
-      await tester.tap(find.text('What your connection can do (1 of 2)'));
+      await tester.tap(find.text('Your connection is good for (1 of 2):'));
       await tester.pumpAndSettle();
 
       expect(find.textContaining('Upload could not be measured'), findsNothing);

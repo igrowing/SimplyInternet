@@ -5,6 +5,7 @@ import 'package:simply_internet/features/diagnostics/domain/entities/solution.da
 import 'package:simply_internet/features/diagnostics/presentation/controllers/diagnosis_controller.dart';
 import 'package:simply_internet/features/diagnostics/presentation/widgets/technical_details.dart';
 import 'package:simply_internet/features/diagnostics/presentation/widgets/verdict_visuals.dart';
+import 'package:simply_internet/l10n/app_localizations.dart';
 
 /// Renders a finished [DiagnosisReport]: the verdict headline, the plain
 /// solution text, and one button per suggested action (asking for
@@ -18,6 +19,7 @@ class ResultView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
     final verdict = report.verdict;
     final color = VerdictVisuals.colorFor(verdict.category);
 
@@ -57,7 +59,10 @@ class ResultView extends StatelessWidget {
                     children: [
                       const Icon(Icons.build_circle_outlined),
                       const SizedBox(width: 8),
-                      Text('What to do', style: theme.textTheme.titleMedium),
+                      Text(
+                        l10n.resultWhatToDo,
+                        style: theme.textTheme.titleMedium,
+                      ),
                     ],
                   ),
                   if (report.solution!.message.isNotEmpty) ...[
@@ -90,7 +95,7 @@ class ResultView extends StatelessWidget {
         OutlinedButton.icon(
           onPressed: controller.reset,
           icon: const Icon(Icons.arrow_back),
-          label: const Text('Back'),
+          label: Text(l10n.commonBack),
         ),
         const SizedBox(height: 8),
         TechnicalDetails(log: report.log),
@@ -100,6 +105,7 @@ class ResultView extends StatelessWidget {
 
   Future<void> _onAction(BuildContext context, SolutionAction action) async {
     final messenger = ScaffoldMessenger.of(context);
+    final l10n = AppLocalizations.of(context);
     if (action.confirmBeforeAct) {
       final ok = await showDialog<bool>(
         context: context,
@@ -108,11 +114,11 @@ class ResultView extends StatelessWidget {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(false),
-              child: const Text('Not now'),
+              child: Text(l10n.resultDialogNotNow),
             ),
             FilledButton(
               onPressed: () => Navigator.of(ctx).pop(true),
-              child: const Text('Yes'),
+              child: Text(l10n.resultDialogYes),
             ),
           ],
         ),
@@ -123,12 +129,12 @@ class ResultView extends StatelessWidget {
       final done = await controller.performAction(action);
       if (!done) {
         messenger.showSnackBar(
-          const SnackBar(content: Text('Nothing to open for this step.')),
+          SnackBar(content: Text(l10n.resultNothingToOpen)),
         );
       }
     } on Exception catch (e) {
       messenger.showSnackBar(
-        SnackBar(content: Text('Could not complete that action: $e')),
+        SnackBar(content: Text(l10n.resultActionFailed('$e'))),
       );
     }
   }
@@ -167,12 +173,10 @@ class _CapabilityList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
     final fits = assessment.supported.length;
     return ExpansionTile(
-      title: Text(
-        'What your connection can do ($fits of '
-        '${assessment.outcomes.length})',
-      ),
+      title: Text(l10n.resultCapabilityTitle(fits, assessment.outcomes.length)),
       childrenPadding: const EdgeInsets.symmetric(horizontal: 8),
       children: [
         for (final outcome in assessment.outcomes)
@@ -184,7 +188,7 @@ class _CapabilityList extends StatelessWidget {
                   ? Colors.green.shade700
                   : Colors.amber.shade800,
             ),
-            title: Text(outcome.name),
+            title: Text(l10n.useCaseName(outcome.id.name)),
             subtitle: outcome.supported
                 ? null
                 : Text(
@@ -196,7 +200,7 @@ class _CapabilityList extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.all(8),
             child: Text(
-              'Upload could not be measured, therefore not assessed.',
+              l10n.resultUploadNotMeasured,
               style: theme.textTheme.bodySmall,
             ),
           ),

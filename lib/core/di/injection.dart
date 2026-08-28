@@ -8,7 +8,10 @@ import 'package:simply_internet/features/diagnostics/domain/repositories/device_
 import 'package:simply_internet/features/diagnostics/domain/repositories/network_probe.dart';
 import 'package:simply_internet/features/diagnostics/domain/usecases/run_diagnosis.dart';
 import 'package:simply_internet/features/diagnostics/presentation/controllers/diagnosis_controller.dart';
+import 'package:simply_internet/features/settings/presentation/controllers/settings_controller.dart';
+import 'package:simply_internet/features/urlcheck/data/repositories/url_history_impl.dart';
 import 'package:simply_internet/features/urlcheck/data/repositories/url_inspector_impl.dart';
+import 'package:simply_internet/features/urlcheck/domain/repositories/url_history.dart';
 import 'package:simply_internet/features/urlcheck/domain/repositories/url_inspector.dart';
 import 'package:simply_internet/features/urlcheck/domain/usecases/check_url.dart';
 import 'package:simply_internet/features/urlcheck/presentation/controllers/url_check_controller.dart';
@@ -27,8 +30,17 @@ void configureDependencies(SharedPreferences prefs) {
     ..registerLazySingleton<DeviceActions>(
       () => DeviceActionsImpl(sl<PlatformActionsDatasource>()),
     )
+    ..registerLazySingleton(
+      () => SettingsController(
+        prefs: sl<SharedPreferences>(),
+        deviceActions: sl<DeviceActions>(),
+      ),
+    )
     ..registerLazySingleton(() => RunDiagnosis(sl<NetworkProbe>()))
     ..registerLazySingleton<UrlInspector>(UrlInspectorImpl.new)
+    ..registerLazySingleton<UrlHistory>(
+      () => UrlHistoryImpl(sl<SharedPreferences>()),
+    )
     ..registerLazySingleton(() => CheckUrl(sl<UrlInspector>()))
     ..registerFactory(
       () => DiagnosisController(
@@ -41,6 +53,7 @@ void configureDependencies(SharedPreferences prefs) {
         checkUrl: sl<CheckUrl>(),
         deviceActions: sl<DeviceActions>(),
         networkProbe: sl<NetworkProbe>(),
+        urlHistory: sl<UrlHistory>(),
       ),
     );
 }

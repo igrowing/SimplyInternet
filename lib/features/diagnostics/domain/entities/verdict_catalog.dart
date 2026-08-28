@@ -1,67 +1,67 @@
-import 'package:simply_internet/core/retest/cross_medium_retest.dart';
 import 'package:simply_internet/features/diagnostics/domain/entities/capability.dart';
 import 'package:simply_internet/features/diagnostics/domain/entities/link_quality.dart';
 import 'package:simply_internet/features/diagnostics/domain/entities/network_facts.dart';
 import 'package:simply_internet/features/diagnostics/domain/entities/solution.dart';
 import 'package:simply_internet/features/diagnostics/domain/entities/verdict.dart';
+import 'package:simply_internet/l10n/app_localizations.dart';
 
-/// Pure factory that turns a [VerdictCategory] (plus the one concrete fact it
-/// names) into a user-facing [Verdict] and its [Solution]. Kept free of any
-/// platform dependency so the whole mapping can be unit-tested.
+/// Factory that turns a [VerdictCategory] (plus the one concrete fact it names)
+/// into a user-facing [Verdict] and its [Solution].
+///
+/// Every string is resolved from an injected [AppLocalizations] so the whole
+/// report follows the app's language. The branching logic (which medium, how
+/// strong the signal, which capability case) only chooses *which* localized
+/// sentence to use and computes its placeholder values — it never assembles a
+/// sentence from translated fragments.
 class VerdictCatalog {
   const VerdictCatalog._();
 
   /// Build the verdict + solution for "not connected". [airplane] chooses
   /// between the flight-mode wording and the Wi-Fi/data-off wording.
-  static ({Verdict verdict, Solution solution}) notConnected({
+  static ({Verdict verdict, Solution solution}) notConnected(
+    AppLocalizations l10n, {
     required bool airplane,
   }) {
     if (airplane) {
       return (
-        verdict: const Verdict(
+        verdict: Verdict(
           category: VerdictCategory.notConnected,
-          title: 'You are in flight mode',
-          detail:
-              'Wireless is switched off, so nothing can reach the '
-              'Internet while flight mode is on.',
+          title: l10n.verdictFlightModeTitle,
+          detail: l10n.verdictFlightModeDetail,
         ),
-        solution: const Solution(
-          message: 'Turn off flight mode, then try again.',
+        solution: Solution(
+          message: l10n.solutionFlightModeMessage,
           actions: [
             SolutionAction(
               type: SolutionActionType.disableAirplane,
-              label: 'Open flight-mode settings',
+              label: l10n.actionOpenFlightSettings,
               confirmBeforeAct: true,
-              confirmationPrompt:
-                  "You're in flight mode. Open settings to turn it off?",
+              confirmationPrompt: l10n.confirmFlightMode,
             ),
           ],
         ),
       );
     }
     return (
-      verdict: const Verdict(
+      verdict: Verdict(
         category: VerdictCategory.notConnected,
-        title: 'Not connected to any network',
-        detail:
-            'Both Wi-Fi and mobile data appear to be off, so there is no '
-            'way to reach the Internet.',
+        title: l10n.verdictNotConnectedTitle,
+        detail: l10n.verdictNotConnectedDetail,
       ),
-      solution: const Solution(
-        message: 'Turn on Wi-Fi or mobile data, then try again.',
+      solution: Solution(
+        message: l10n.solutionNotConnectedMessage,
         actions: [
           SolutionAction(
             type: SolutionActionType.enableWifi,
-            label: 'Turn on Wi-Fi',
+            label: l10n.actionTurnOnWifi,
             confirmBeforeAct: true,
-            confirmationPrompt: 'Wi-Fi is off. Open settings to turn it on?',
+            confirmationPrompt: l10n.confirmTurnOnWifi,
           ),
           SolutionAction(
             type: SolutionActionType.enableMobileData,
-            label: 'Turn on mobile data',
+            label: l10n.actionTurnOnMobileData,
             confirmBeforeAct: true,
-            confirmationPrompt:
-                'Mobile data is off. Open settings to turn it on?',
+            confirmationPrompt: l10n.confirmTurnOnMobileData,
           ),
         ],
       ),
@@ -69,53 +69,49 @@ class VerdictCatalog {
   }
 
   static ({Verdict verdict, Solution solution}) routerNotResponding(
+    AppLocalizations l10n,
     String? gatewayIp,
   ) {
     final where = gatewayIp == null
-        ? 'your router'
-        : 'your router ($gatewayIp)';
+        ? l10n.verdictRouterWhereUnnamed
+        : l10n.verdictRouterWhereNamed(gatewayIp);
     return (
       verdict: Verdict(
         category: VerdictCategory.routerNotResponding,
-        title: 'Router is not responding',
-        detail:
-            "You're connected to the network, but $where isn't "
-            'answering. It may have crashed or lost power.',
+        title: l10n.verdictRouterNotRespondingTitle,
+        detail: l10n.verdictRouterNotRespondingDetail(where),
         detailArg: gatewayIp,
       ),
-      solution: const Solution(
-        message:
-            'Restart your router: unplug it, wait 30 seconds, plug it '
-            'back in, and let it take about 2-5 minutes to start up. Then run '
-            'the test again.',
+      solution: Solution(
+        message: l10n.solutionRouterNotRespondingMessage,
         actions: [
-          SolutionAction(type: SolutionActionType.retry, label: 'Test again'),
+          SolutionAction(
+            type: SolutionActionType.retry,
+            label: l10n.actionTestAgain,
+          ),
         ],
       ),
     );
   }
 
-  static ({Verdict verdict, Solution solution}) captivePortal(String? url) {
+  static ({Verdict verdict, Solution solution}) captivePortal(
+    AppLocalizations l10n,
+    String? url,
+  ) {
     return (
-      verdict: const Verdict(
+      verdict: Verdict(
         category: VerdictCategory.captivePortal,
-        title: 'Sign-in required (captive portal)',
-        detail:
-            'The network wants you to sign in or accept terms on a web '
-            'page before it lets you online — common in hotels, cafes and '
-            'airports.',
+        title: l10n.verdictCaptivePortalTitle,
+        detail: l10n.verdictCaptivePortalDetail,
       ),
       solution: Solution(
-        message:
-            'Open the sign-in page and complete the login, then run the '
-            'test again.',
+        message: l10n.solutionCaptivePortalMessage,
         actions: [
           SolutionAction(
             type: SolutionActionType.openCaptivePortal,
-            label: 'Open sign-in page',
+            label: l10n.actionOpenSignInPage,
             confirmBeforeAct: true,
-            confirmationPrompt:
-                "You're blocked by a sign-in page. Open it now?",
+            confirmationPrompt: l10n.confirmCaptivePortal,
             payload: url,
           ),
         ],
@@ -124,58 +120,42 @@ class VerdictCatalog {
   }
 
   /// [medium] picks the wording: a mobile link has no router, DSL socket or
-  /// landline to point at, so that advice is replaced with carrier-side
-  /// steps instead of being shown regardless of what the user is actually on.
-  static ({Verdict verdict, Solution solution}) noInternetIsp({
+  /// landline to point at, so that advice is replaced with carrier-side steps.
+  static ({Verdict verdict, Solution solution}) noInternetIsp(
+    AppLocalizations l10n, {
     required ConnectivityKind medium,
   }) {
     if (medium == ConnectivityKind.mobile) {
       return (
-        verdict: const Verdict(
+        verdict: Verdict(
           category: VerdictCategory.noInternetIsp,
-          title: 'Connected to mobile data, but no Internet',
-          detail:
-              'Your phone reaches the network at a basic level, but it has '
-              'no working path to the Internet. This points to a problem on '
-              "your carrier's network, not your phone.",
+          title: l10n.verdictNoInternetMobileTitle,
+          detail: l10n.verdictNoInternetMobileDetail,
         ),
-        solution: const Solution(
-          message:
-              '1. Toggle airplane mode on and off, or restart your phone, '
-              'to reconnect to a fresh tower.\n'
-              '2. If the test still fails after 2-5 minutes, contact your '
-              'mobile carrier — the outage is on their side.',
+        solution: Solution(
+          message: l10n.solutionNoInternetMobileMessage,
           actions: [
             SolutionAction(
               type: SolutionActionType.retry,
-              label: 'Test again',
+              label: l10n.actionTestAgain,
             ),
           ],
         ),
       );
     }
     return (
-      verdict: const Verdict(
+      verdict: Verdict(
         category: VerdictCategory.noInternetIsp,
-        title: 'Connected to router, but no Internet',
-        detail:
-            'Your router works, but it has no working connection to your '
-            'Internet provider (ISP). The problem is outside your home.',
+        title: l10n.verdictNoInternetIspTitle,
+        detail: l10n.verdictNoInternetIspDetail,
       ),
-      solution: const Solution(
-        message:
-            '1. Check whether your router is connected to the wall '
-            'phone/DSL socket.\n'
-            '2. Check the cable is not damaged or loose.\n'
-            '3. If you have a landline phone, pick up the handset and '
-            'listen for the dial tone. If you hear no dial tone, contact '
-            'your phone company and/or Internet provider to fix your '
-            'line.\n'
-            '4. Restart your router once to re-establish the ISP link. '
-            'If the test still fails after 2-5 minutes, contact your '
-            'Internet provider — the outage is on their side.',
+      solution: Solution(
+        message: l10n.solutionNoInternetIspMessage,
         actions: [
-          SolutionAction(type: SolutionActionType.retry, label: 'Test again'),
+          SolutionAction(
+            type: SolutionActionType.retry,
+            label: l10n.actionTestAgain,
+          ),
         ],
       ),
     );
@@ -183,352 +163,327 @@ class VerdictCatalog {
 
   /// [signalWeak] and [signalGood] come from the measured cellular signal, so
   /// the advice only tells the user to move when reception is actually poor.
-  static ({Verdict verdict, Solution solution}) mobileDataNoInternet({
+  static ({Verdict verdict, Solution solution}) mobileDataNoInternet(
+    AppLocalizations l10n, {
     bool signalWeak = false,
     bool signalGood = false,
   }) {
-    final String reception;
-    if (signalGood) {
-      reception = 'Toggle mobile data off and on.';
-    } else if (signalWeak) {
-      reception =
-          'Your signal is weak: move to a spot with better reception and '
-          'toggle mobile data off and on.';
-    } else {
-      reception =
-          'Move to a spot with better signal, or toggle mobile data '
-          'off and on.';
-    }
+    final signal = signalGood
+        ? 'good'
+        : signalWeak
+        ? 'weak'
+        : 'other';
     return (
-      verdict: const Verdict(
+      verdict: Verdict(
         category: VerdictCategory.mobileNoData,
-        title: 'Mobile data is connected but not working',
-        detail:
-            'Your phone is on the cellular network, but no data is getting '
-            'through. This usually means data roaming is off, your data '
-            'allowance is used up, or your carrier has a local outage.',
+        title: l10n.verdictMobileNoDataTitle,
+        detail: l10n.verdictMobileNoDataDetail,
       ),
       solution: Solution(
-        message:
-            '1. If you are abroad or on another network, turn on data '
-            'roaming in mobile settings.\n'
-            '2. Check that you still have data allowance left on your plan.\n'
-            '3. $reception\n'
-            '4. If it still fails, contact your mobile carrier.',
-        actions: const [
+        message: l10n.solutionMobileNoDataMessage(
+          l10n.solutionMobileNoDataReception(signal),
+        ),
+        actions: [
           SolutionAction(
             type: SolutionActionType.enableMobileData,
-            label: 'Open mobile data settings',
+            label: l10n.actionOpenMobileDataSettings,
             confirmBeforeAct: true,
-            confirmationPrompt:
-                'Open mobile data settings to check roaming and data?',
+            confirmationPrompt: l10n.confirmMobileDataSettings,
           ),
-          SolutionAction(type: SolutionActionType.retry, label: 'Test again'),
+          SolutionAction(
+            type: SolutionActionType.retry,
+            label: l10n.actionTestAgain,
+          ),
         ],
       ),
     );
   }
 
   /// [medium] picks the follow-up steps: a mobile link has no network
-  /// administrator or router to check, so those steps are replaced with
-  /// carrier-side ones instead of being shown regardless of what the user is
-  /// actually on.
-  static ({Verdict verdict, Solution solution}) dnsProblem({
+  /// administrator or router to check.
+  static ({Verdict verdict, Solution solution}) dnsProblem(
+    AppLocalizations l10n, {
     required ConnectivityKind medium,
   }) {
-    final steps = medium == ConnectivityKind.mobile
-        ? '2. If it still fails, toggle mobile data off and on, or restart '
-              'your phone, to get a fresh connection.\n'
-              '3. If it still fails, contact your mobile carrier — some '
-              'carriers run DNS resolvers that have outages of their own.'
-        : '2. If you are on a managed network (work, school, public '
-              'Wi-Fi), contact the network administrator to fix the DNS.\n'
-              '3. If you are on your own network, check your router '
-              'settings. It is good practice to configure the secondary '
-              'DNS to a public resolver as well (examples: 1.1.1.1, 4.4.4.4, '
-              '4.4.2.2, 8.8.8.8), in case the primary (your Internet '
-              'provider) fails.';
+    final message = medium == ConnectivityKind.mobile
+        ? l10n.solutionDnsProblemMessageMobile
+        : l10n.solutionDnsProblemMessageFixed;
     return (
-      verdict: const Verdict(
+      verdict: Verdict(
         category: VerdictCategory.dnsProblem,
-        title: 'DNS problem',
-        detail:
-            'The Internet is reachable, but website names are not being '
-            'translated into addresses. This is a DNS issue and is usually '
-            'easy to fix by switching to a public DNS resolver.',
+        title: l10n.verdictDnsProblemTitle,
+        detail: l10n.verdictDnsProblemDetail,
       ),
       solution: Solution(
-        message:
-            '1. Switch your Private DNS to a reliable public resolver such '
-            'as 1.1.1.1 (Cloudflare) or 8.8.8.8 (Google), then test again.\n'
-            '$steps',
-        actions: const [
+        message: message,
+        actions: [
           SolutionAction(
             type: SolutionActionType.changeDns,
-            label: 'Open Private DNS settings',
+            label: l10n.actionOpenPrivateDns,
             confirmBeforeAct: true,
-            confirmationPrompt:
-                'Open Private DNS settings so you can switch to 1.1.1.1?',
+            confirmationPrompt: l10n.confirmPrivateDns,
           ),
         ],
       ),
     );
   }
 
-  /// [medium] picks the alternative offered: suggesting "switch to mobile
-  /// data" is circular when the user is already on mobile data, and a
-  /// carrier's port policy is not something a router firewall page fixes.
+  /// [medium] picks the alternative offered: suggesting "switch to mobile data"
+  /// is circular when the user is already on mobile data.
   static ({Verdict verdict, Solution solution}) portBlocked(
+    AppLocalizations l10n,
     PortProbeResult blocked, {
     required ConnectivityKind medium,
   }) {
     final advice = medium == ConnectivityKind.mobile
-        ? 'Your mobile carrier is likely blocking it by policy — try '
-              'Wi-Fi or a VPN instead, or contact your carrier if you need '
-              'this port open over cellular.'
-        : "If you're currently connected to a managed network (work, "
-              'school, public Wi-Fi), port ${blocked.port} is blocked by '
-              'policy — try mobile data or a VPN instead. On your own '
-              'network, check the firewall rules in your router settings.';
+        ? l10n.solutionPortBlockedMobile
+        : l10n.solutionPortBlockedFixed('${blocked.port}');
     return (
       verdict: Verdict(
         category: VerdictCategory.portBlocked,
-        title: 'Port ${blocked.port} is blocked',
-        detail:
-            'General Internet access works, but ${blocked.service} traffic on '
-            'port ${blocked.port} is being blocked — likely by a firewall on '
-            'this network. Some apps that rely on this port will not work.',
+        title: l10n.verdictPortBlockedTitle('${blocked.port}'),
+        detail: l10n.verdictPortBlockedDetail(
+          blocked.service,
+          '${blocked.port}',
+        ),
         detailArg: '${blocked.port}',
       ),
       solution: Solution(
         message: advice,
-        actions: const [
-          SolutionAction(type: SolutionActionType.retry, label: 'Test again'),
+        actions: [
+          SolutionAction(
+            type: SolutionActionType.retry,
+            label: l10n.actionTestAgain,
+          ),
         ],
       ),
     );
   }
 
-  /// [medium] only swaps the noun used for who is at fault: a mobile link
-  /// has no router to exonerate, and "carrier" reads more naturally than
-  /// "ISP" for a cellular link.
+  /// [medium] only swaps the noun used for who is at fault: "carrier" reads
+  /// more naturally than "ISP" for a cellular link.
   static ({Verdict verdict, Solution solution}) ispPathProblem(
+    AppLocalizations l10n,
     IspPathResult path, {
     required ConnectivityKind medium,
   }) {
     final isMobile = medium == ConnectivityKind.mobile;
-    final providerNoun = isMobile ? 'mobile carrier' : 'Internet provider';
-    final hop = path.lastRespondingHop ?? 'a hop inside your $providerNoun';
-    final deviceClause = isMobile
-        ? 'not on your phone'
-        : 'not on your device or router';
+    final hop =
+        path.lastRespondingHop ??
+        (isMobile
+            ? l10n.verdictIspPathHopGenericMobile
+            : l10n.verdictIspPathHopGenericFixed);
     return (
       verdict: Verdict(
         category: VerdictCategory.ispPathProblem,
         title: isMobile
-            ? 'Network path problem at your carrier'
-            : 'Network path problem at your ISP',
-        detail:
-            'Your connection reaches the Internet but traffic stops along '
-            'the way, after $hop. The fault is on your $providerNoun or '
-            'backbone route, $deviceClause.',
+            ? l10n.verdictIspPathMobileTitle
+            : l10n.verdictIspPathIspTitle,
+        detail: isMobile
+            ? l10n.verdictIspPathDetailMobile(hop)
+            : l10n.verdictIspPathDetailFixed(hop),
         detailArg: path.lastRespondingHop,
       ),
       solution: Solution(
-        message:
-            'There is nothing to fix on your device or in your '
-            'network. Report the failing route to your $providerNoun '
-            '(mention that traceroute stops '
-            'partway). It usually clears once they fix the route.',
-        actions: const [
-          SolutionAction(type: SolutionActionType.retry, label: 'Test again'),
+        message: isMobile
+            ? l10n.solutionIspPathMessageMobile
+            : l10n.solutionIspPathMessageFixed,
+        actions: [
+          SolutionAction(
+            type: SolutionActionType.retry,
+            label: l10n.actionTestAgain,
+          ),
         ],
       ),
     );
   }
 
   /// The verdict for a connection that is not broken: what it can and cannot
-  /// carry, rather than a bare "no problem found" that says nothing about a
-  /// link which is technically alive but too weak to use.
-  static ({Verdict verdict, Solution? solution}) capability({
+  /// carry.
+  static ({Verdict verdict, Solution? solution}) capability(
+    AppLocalizations l10n, {
     required CapabilityAssessment assessment,
     required ConnectivityKind medium,
     required SpeedResult speed,
     required LinkQuality quality,
   }) {
-    final mediumName = mediumLabel(medium);
+    final mediumName = mediumLabel(l10n, medium);
 
     switch (assessment.kind) {
       case CapabilityCase.good:
-        final uses = _names(_mostDemanding(assessment.supported, 4));
+        final uses = _names(l10n, _mostDemanding(assessment.supported, 4));
         return (
           verdict: Verdict(
             category: VerdictCategory.connectionGood,
-            title: 'Your $mediumName is good for $uses — and more',
-            detail:
-                '${_measured(medium, speed)} If something still feels wrong, '
-                'it is most likely one app or website — not your '
-                'connection.',
+            title: l10n.verdictCapabilityGoodTitle(mediumName, uses),
+            detail: l10n.verdictCapabilityGoodDetail(
+              _measured(l10n, medium, speed),
+            ),
           ),
           solution: null,
         );
 
       case CapabilityCase.mostlyGood:
-        final failing = _names(assessment.unsupported.take(3).toList());
+        final failing = _names(l10n, assessment.unsupported.take(3).toList());
         return (
           verdict: Verdict(
             category: VerdictCategory.connectionMostlyGood,
-            title: 'Your $mediumName is good for everything except $failing',
-            detail: _detail(assessment, medium, quality),
+            title: l10n.verdictCapabilityMostlyGoodTitle(mediumName, failing),
+            detail: _detail(l10n, assessment, medium, quality),
             detailArg: failing,
           ),
-          solution: _advice(assessment, medium, quality),
+          solution: _advice(l10n, assessment, medium, quality),
         );
 
       case CapabilityCase.degraded:
-        final failing = _names(assessment.unsupported.take(4).toList());
+        final failing = _names(l10n, assessment.unsupported.take(4).toList());
         return (
           verdict: Verdict(
             category: VerdictCategory.connectionDegraded,
-            title: 'Your $mediumName is too weak for $failing',
-            detail: _detail(assessment, medium, quality),
+            title: l10n.verdictCapabilityDegradedTitle(mediumName, failing),
+            detail: _detail(l10n, assessment, medium, quality),
             detailArg: failing,
           ),
-          solution: _advice(assessment, medium, quality),
+          solution: _advice(l10n, assessment, medium, quality),
         );
     }
   }
 
-  /// How the tested link is named in every sentence the user reads, so the
-  /// report always states which medium the figures came from.
-  static String mediumLabel(ConnectivityKind kind) {
+  /// How the tested link is named in every sentence the user reads.
+  static String mediumLabel(AppLocalizations l10n, ConnectivityKind kind) {
     switch (kind) {
       case ConnectivityKind.wifi:
-        return 'Wi-Fi';
+        return l10n.mediumLabel('wifi');
       case ConnectivityKind.mobile:
-        return 'mobile data';
+        return l10n.mediumLabel('mobile');
       case ConnectivityKind.ethernet:
-        return 'wired connection';
+        return l10n.mediumLabel('ethernet');
       case ConnectivityKind.vpn:
-        return 'VPN connection';
+        return l10n.mediumLabel('vpn');
       case ConnectivityKind.other:
       case ConnectivityKind.none:
-        return 'connection';
+        return l10n.mediumLabel('other');
     }
   }
 
   /// The figures for a healthy link: what it delivers, nothing else.
-  static String _measured(ConnectivityKind medium, SpeedResult speed) {
-    final parts = <String>[
-      if (speed.ok) 'download ${_rate(speed.downloadMbps)} Mbps',
-      if (speed.uploadMbps != null) 'upload ${_rate(speed.uploadMbps!)} Mbps',
-    ];
-    if (parts.isEmpty) return 'Measured over ${mediumLabel(medium)}.';
-    return 'Measured over ${mediumLabel(medium)}:\n${parts.join(', ')}.';
+  static String _measured(
+    AppLocalizations l10n,
+    ConnectivityKind medium,
+    SpeedResult speed,
+  ) {
+    final name = mediumLabel(l10n, medium);
+    final hasDown = speed.ok;
+    final hasUp = speed.uploadMbps != null;
+    if (hasDown && hasUp) {
+      return l10n.verdictMeasuredBoth(
+        name,
+        _rate(speed.downloadMbps),
+        _rate(speed.uploadMbps!),
+      );
+    }
+    if (hasDown) {
+      return l10n.verdictMeasuredDownOnly(name, _rate(speed.downloadMbps));
+    }
+    if (hasUp) {
+      return l10n.verdictMeasuredUpOnly(name, _rate(speed.uploadMbps!));
+    }
+    return l10n.verdictMeasuredNone(name);
   }
 
-  /// Why the connection falls short: only the measurements that actually miss
-  /// a limit, then the one sentence that explains where they come from. Every
-  /// instruction belongs to the solution, so the two never mix.
+  /// Why the connection falls short: the missing-upload note plus the one
+  /// sentence that explains the cause. Measured shortfall figures are kept out
+  /// of the verdict — they belong to the capability list and the technical log.
   static String _detail(
+    AppLocalizations l10n,
     CapabilityAssessment assessment,
     ConnectivityKind medium,
     LinkQuality quality,
   ) {
-    final blame = assessment.worstShortfalls
-        .take(2)
-        .map((s) => s.text)
-        .join(', ');
-    final figures = blame.isEmpty
-        ? ''
-        : 'Measured over ${mediumLabel(medium)}:\n$blame. ';
-    final missing = assessment.uploadMeasured
-        ? ''
-        : 'The upload test could not run, therefore not assessed. ';
-    return '$figures$missing${_because(assessment, medium, quality)}'.trim();
+    final parts = <String>[
+      if (!assessment.uploadMeasured) l10n.verdictUploadNotAssessed,
+      _because(l10n, assessment, medium, quality),
+    ]..removeWhere((s) => s.isEmpty);
+    return parts.join(' ');
   }
 
   /// The cause, with no instruction in it.
   static String _because(
+    AppLocalizations l10n,
     CapabilityAssessment assessment,
     ConnectivityKind medium,
     LinkQuality quality,
   ) {
     if (medium == ConnectivityKind.wifi && _gatewayWeak(quality)) {
-      return 'Your router answers slowly or drops packets, which points at '
-          'the Wi-Fi itself rather than your provider.';
+      return l10n.verdictCauseGatewayWeak;
     }
     if (medium == ConnectivityKind.wifi && _saturated(quality)) {
-      return 'The connection slows down sharply while it is busy. Someone or '
-          'something else on your network (a download, a backup, a TV) is '
-          'using the line.';
+      return l10n.verdictCauseSaturated;
     }
     if (assessment.throughputOnlyProblem) {
-      return 'The connection speed is not sufficient. Either your Internet '
-          'plan is too slow or your provider is throttling the line.';
+      return l10n.verdictCauseThroughput;
     }
-    return '';
+    return l10n.verdictCauseGeneric;
   }
 
   /// What to do — instructions only, and never a repeat of the cause.
   static Solution _advice(
+    AppLocalizations l10n,
     CapabilityAssessment assessment,
     ConnectivityKind medium,
     LinkQuality quality,
   ) {
-    const moveCloser =
-        'Move closer to the router, or try the 5 GHz network if your router '
-        'offers one.';
-    const pauseTheHog =
-        'Find who or what is using the line heavily and ask them to pause. '
-        'Otherwise wait, or restart your Wi-Fi — that cuts their connection '
-        'too.';
-    const dropTheCamera =
-        'Turn your camera off — your connection can still carry the audio.';
     final steps = <String>[
       if (medium == ConnectivityKind.wifi && _gatewayWeak(quality))
-        moveCloser
+        l10n.adviceMoveCloser
       else if (medium == ConnectivityKind.wifi && _saturated(quality))
-        pauseTheHog,
-      if (assessment.voiceCallStillFits) dropTheCamera,
+        l10n.advicePauseTheHog,
+      if (assessment.voiceCallStillFits) l10n.adviceDropTheCamera,
     ];
 
-    return Solution(message: steps.join(' '), actions: retestActions(medium));
+    return Solution(
+      message: steps.join(' '),
+      actions: retestActions(l10n, medium),
+    );
   }
 
-  /// Offers a fresh test on the same medium and one on the alternative medium,
-  /// so a weak Wi-Fi result can be compared against mobile data (and back).
-  /// Choosing the mobile test is the user's acknowledgement of its data use.
-  static List<SolutionAction> retestActions(ConnectivityKind medium) {
+  /// Offers a fresh test on the same medium and one on the alternative medium.
+  static List<SolutionAction> retestActions(
+    AppLocalizations l10n,
+    ConnectivityKind medium,
+  ) {
     switch (medium) {
       case ConnectivityKind.wifi:
-        return const [
+        return [
           SolutionAction(
             type: SolutionActionType.retry,
-            label: 'Test again over Wi-Fi',
+            label: l10n.actionTestAgainWifi,
           ),
           SolutionAction(
             type: SolutionActionType.retestOverMobile,
-            label: kTestOverMobileLabel,
+            label: l10n.crossMediumTestOverMobile,
           ),
         ];
       case ConnectivityKind.mobile:
-        return const [
+        return [
           SolutionAction(
             type: SolutionActionType.retry,
-            label: 'Test again over mobile data',
+            label: l10n.actionTestAgainMobile,
           ),
           SolutionAction(
             type: SolutionActionType.retestOverWifi,
-            label: kTestOverWifiLabel,
+            label: l10n.crossMediumTestOverWifi,
           ),
         ];
       case ConnectivityKind.ethernet:
       case ConnectivityKind.vpn:
       case ConnectivityKind.other:
       case ConnectivityKind.none:
-        return const [
-          SolutionAction(type: SolutionActionType.retry, label: 'Test again'),
+        return [
+          SolutionAction(
+            type: SolutionActionType.retry,
+            label: l10n.actionTestAgain,
+          ),
         ];
     }
   }
@@ -556,12 +511,15 @@ class VerdictCatalog {
     return ranked.take(count).toList();
   }
 
-  static String _names(List<UseCaseOutcome> outcomes) {
-    final names = outcomes.map((o) => o.name).toList();
-    if (names.isEmpty) return 'anything demanding';
+  static String _names(AppLocalizations l10n, List<UseCaseOutcome> outcomes) {
+    final names = outcomes
+        .map((o) => l10n.useCaseName(o.id.name))
+        .toList();
+    if (names.isEmpty) return l10n.useCaseNoneDemanding;
     if (names.length == 1) return names.first;
-    return '${names.sublist(0, names.length - 1).join(', ')} '
-        'and ${names.last}';
+    if (names.length == 2) return l10n.listTwo(names.first, names.last);
+    final head = names.sublist(0, names.length - 1).join(', ');
+    return l10n.listAnd(head, names.last);
   }
 
   static String _rate(double value) =>

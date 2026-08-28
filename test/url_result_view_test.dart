@@ -5,6 +5,7 @@ import 'package:simply_internet/features/urlcheck/domain/entities/url_check_repo
 import 'package:simply_internet/features/urlcheck/domain/usecases/check_url.dart';
 import 'package:simply_internet/features/urlcheck/presentation/controllers/url_check_controller.dart';
 import 'package:simply_internet/features/urlcheck/presentation/widgets/url_check_result_view.dart';
+import 'package:simply_internet/l10n/app_localizations.dart';
 
 import 'fakes.dart';
 
@@ -15,11 +16,9 @@ Future<UrlCheckController> _checkedOver(ConnectivityKind medium) async {
     checkUrl: CheckUrl(FakeUrlInspector()),
     deviceActions: FakeDeviceActions(),
     networkProbe: FakeNetworkProbe(
-      connectivityResult: ConnectivityStatus(
-        kind: medium,
-        airplaneMode: false,
-      ),
+      connectivityResult: ConnectivityStatus(kind: medium, airplaneMode: false),
     ),
+    urlHistory: FakeUrlHistory(),
   );
   await controller.check('example.com');
   return controller;
@@ -27,6 +26,9 @@ Future<UrlCheckController> _checkedOver(ConnectivityKind medium) async {
 
 Widget wrap(UrlCheckReport report, UrlCheckController controller) =>
     MaterialApp(
+      locale: const Locale('en'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       home: Scaffold(
         body: UrlCheckResultView(report: report, controller: controller),
       ),

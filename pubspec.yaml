@@ -17,7 +17,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 0.2.8+4
+version: 1.0.0+4
 
 environment:
   sdk: ^3.12.0
@@ -31,9 +31,14 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  # Locale-aware widgets/date-time formatting, required by flutter_localizations.
+  flutter_localizations:
+    sdk: flutter
 
   # Connectivity type (wifi / mobile / none) — cross platform.
   connectivity_plus: ^6.1.0
+  # Flag icons for the Settings language picker.
+  country_flags: ^4.1.2
   # Cupertino Icons font for iOS-style icons.
   cupertino_icons: ^1.0.8
   # Value equality for immutable domain models.
@@ -43,6 +48,8 @@ dependencies:
   # HTTP probes (204 endpoints, popular-site reachability, speed test) and
   # IP-based country detection (Cloudflare trace) for popular-site checks.
   http: ^1.6.0
+  # Backs flutter_localizations / generated AppLocalizations.
+  intl: ^0.20.2
   # Gateway IP / subnet detection (reused pattern from SimplyNet).
   network_info_plus: ^8.1.0
   # App version (shown under the app name on the main screen).
@@ -73,6 +80,9 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
+  # Generates AppLocalizations from lib/l10n/*.arb per l10n.yaml.
+  generate: true
 
   assets:
     - assets/simplyinternet_fg.png

@@ -5,6 +5,7 @@ import 'package:simply_internet/features/diagnostics/domain/entities/network_fac
 import 'package:simply_internet/features/urlcheck/domain/entities/url_check_report.dart';
 import 'package:simply_internet/features/urlcheck/domain/usecases/check_url.dart';
 import 'package:simply_internet/features/urlcheck/presentation/controllers/url_check_controller.dart';
+import 'package:simply_internet/l10n/app_localizations.dart';
 
 import 'fakes.dart';
 
@@ -14,8 +15,11 @@ class _FailingCheckUrl extends CheckUrl {
   _FailingCheckUrl() : super(FakeUrlInspector());
 
   @override
-  Future<UrlCheckReport> call(String rawUrl, {String? medium}) async =>
-      throw Exception('the inspector fell over');
+  Future<UrlCheckReport> call(
+    String rawUrl, {
+    String? medium,
+    AppLocalizations? l10n,
+  }) async => throw Exception('the inspector fell over');
 }
 
 /// A use-case that never finishes, so the running state can be observed while
@@ -26,7 +30,11 @@ class _HangingCheckUrl extends CheckUrl {
   int calls = 0;
 
   @override
-  Future<UrlCheckReport> call(String rawUrl, {String? medium}) {
+  Future<UrlCheckReport> call(
+    String rawUrl, {
+    String? medium,
+    AppLocalizations? l10n,
+  }) {
     calls++;
     return Completer<UrlCheckReport>().future;
   }
@@ -36,16 +44,19 @@ void main() {
   group('UrlCheckController', () {
     late FakeDeviceActions actions;
     late UrlCheckController controller;
+    late FakeUrlHistory historyStore;
 
     late FakeNetworkProbe probe;
 
     setUp(() {
       actions = FakeDeviceActions();
       probe = FakeNetworkProbe();
+      historyStore = FakeUrlHistory();
       controller = UrlCheckController(
         checkUrl: CheckUrl(FakeUrlInspector()),
         deviceActions: actions,
         networkProbe: probe,
+        urlHistory: historyStore,
       );
     });
 
@@ -84,6 +95,7 @@ void main() {
           checkUrl: hanging,
           deviceActions: FakeDeviceActions(),
           networkProbe: FakeNetworkProbe(),
+          urlHistory: FakeUrlHistory(),
         );
       });
 
@@ -128,6 +140,7 @@ void main() {
         checkUrl: _FailingCheckUrl(),
         deviceActions: actions,
         networkProbe: probe,
+        urlHistory: FakeUrlHistory(),
       );
       await failing.check('example.com');
       expect(failing.status, UrlCheckStatus.error);
@@ -148,6 +161,31 @@ void main() {
       expect(controller.report, isNotNull);
       await controller.check('');
       expect(controller.report, isNull);
+    });
+
+    group('remembering what was checked', () {
+      test('a finished check is added to the history, newest first', () async {
+        await controller.check('example.com');
+        await controller.check('other.example');
+        expect(controller.history, ['other.example', 'example.com']);
+      });
+
+      test('a bad address is never remembered', () async {
+        await controller.check('');
+        await controller.check('ftp://example.com');
+        expect(controller.history, isEmpty);
+      });
+
+      test('the history is exposed straight from the store', () async {
+        historyStore = FakeUrlHistory(['seed.example']);
+        final seeded = UrlCheckController(
+          checkUrl: CheckUrl(FakeUrlInspector()),
+          deviceActions: actions,
+          networkProbe: probe,
+          urlHistory: historyStore,
+        );
+        expect(seeded.history, ['seed.example']);
+      });
     });
 
     group('openInBrowser', () {

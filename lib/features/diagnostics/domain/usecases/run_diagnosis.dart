@@ -11,6 +11,8 @@ import 'package:simply_internet/features/diagnostics/domain/entities/verdict.dar
 import 'package:simply_internet/features/diagnostics/domain/entities/verdict_catalog.dart';
 import 'package:simply_internet/features/diagnostics/domain/repositories/network_probe.dart';
 import 'package:simply_internet/features/diagnostics/domain/usecases/assess_capability.dart';
+import 'package:simply_internet/l10n/app_localizations.dart';
+import 'package:simply_internet/l10n/app_localizations_en.dart';
 
 /// Coarse progress phases surfaced to the UI. The individual probes now run
 /// concurrently, so the UI only distinguishes "checking the link" from the
@@ -42,6 +44,10 @@ enum DiagnosisPhase { connection, running, done }
 /// using and the diagnosis never switches the medium itself. Mobile data is
 /// therefore only measured when Wi-Fi is not connected, or after the user has
 /// deliberately switched to it to repeat the test.
+///
+/// Every user-facing string in the verdict and the technical log is resolved
+/// from [AppLocalizations]; when [call] is invoked without one it falls back to
+/// English so the pure decision-tree tests need no localization setup.
 class RunDiagnosis {
   const RunDiagnosis(this._probe, [this._assess = const AssessCapability()]);
 
@@ -50,7 +56,10 @@ class RunDiagnosis {
 
   Future<DiagnosisReport> call({
     void Function(DiagnosisPhase phase)? onPhase,
+    AppLocalizations? l10n,
   }) async {
+    final loc = l10n ?? AppLocalizationsEn();
+
     // The probe is a singleton that outlives one run, so the checks it recorded
     // last time are dropped before anything new is measured. Every report then
     // describes only its own run: an early exit at "the router is not
@@ -74,7 +83,7 @@ class RunDiagnosis {
     // diagnosis that stopped at "no Internet" still performed several checks,
     // and empty technical details make it look as if it did nothing.
     DiagnosisReport report(({Verdict verdict, Solution solution}) r) {
-      _noteTests(note, head, _probe.dataUsage());
+      _noteTests(loc, note, head, _probe.dataUsage());
       return DiagnosisReport(
         verdict: r.verdict,
         solution: r.solution,
@@ -84,17 +93,19 @@ class RunDiagnosis {
 
     // ── 1. Device link (fast, local gate) ────────────────────────────────
     phase(DiagnosisPhase.connection);
-    head('Device link');
+    head(loc.logHeadDeviceLink);
     final conn = await _probe.connectivity();
     note(
-      'Connectivity: ${conn.kind.name}, '
-      'flight mode: ${conn.airplaneMode ? "on ✈️" : "off ✅"}',
+      loc.logConnectivity(
+        conn.kind.name,
+        conn.airplaneMode ? loc.logFlightOn : loc.logFlightOff,
+      ),
     );
     if (conn.airplaneMode) {
-      return report(VerdictCatalog.notConnected(airplane: true));
+      return report(VerdictCatalog.notConnected(loc, airplane: true));
     }
     if (!conn.hasLink) {
-      return report(VerdictCatalog.notConnected(airplane: false));
+      return report(VerdictCatalog.notConnected(loc, airplane: false));
     }
 
     // ── 2. First wave: the reachability gate ─────────────────────────────
@@ -122,41 +133,50 @@ class RunDiagnosis {
     ).wait;
 
     // ── 3. Evaluate the ordered decision tree over the gathered facts ─────
-    head('Router');
-    note('Gateway: ${gateway ?? "unknown"}');
+    head(loc.logHeadRouter);
+    note(loc.logGateway(gateway ?? loc.logUnknown));
     if (gateway != null && gatewayMatters) {
-      note('Gateway reachable: ${_yesNo(gwReachable)}');
+      note(loc.logGatewayReachable(_yesNo(loc, gwReachable)));
       if (!gwReachable) {
-        return report(VerdictCatalog.routerNotResponding(gateway));
+        return report(VerdictCatalog.routerNotResponding(loc, gateway));
       }
     }
 
-    head('Internet reachability');
-    note('Internet: ${captive.internetOk ? "reachable ✅" : "no answer ❌"}');
+    head(loc.logHeadInternetReachability);
+    note(
+      loc.logInternet(
+        captive.internetOk
+            ? loc.logInternetReachableYes
+            : loc.logInternetReachableNo,
+      ),
+    );
     sub(
-      'Captive sign-in page: '
-      '${_yesNo(captive.portalDetected, goodWhenTrue: false)}',
+      loc.logCaptiveSignIn(
+        _yesNo(loc, captive.portalDetected, goodWhenTrue: false),
+      ),
     );
     if (captive.portalDetected) {
-      return report(VerdictCatalog.captivePortal(captive.portalUrl));
+      return report(VerdictCatalog.captivePortal(loc, captive.portalUrl));
     }
 
     if (!captive.internetOk) {
       // The 204 endpoints did not confirm Internet. Decide between a DNS
       // fault, an ISP path fault and a plain WAN outage using raw IP probes.
-      sub('Raw IP address reachable: ${_yesNo(rawReachable)}');
+      sub(loc.logRawIpReachable(_yesNo(loc, rawReachable)));
       if (rawReachable) {
-        sub('Name resolves ($kDnsProbeHost): ${_yesNo(dnsOk)}');
+        sub(loc.logNameResolves(kDnsProbeHost, _yesNo(loc, dnsOk)));
         if (!dnsOk) {
-          return report(VerdictCatalog.dnsProblem(medium: conn.kind));
+          return report(VerdictCatalog.dnsProblem(loc, medium: conn.kind));
         }
         // Traced only here, where the answer decides between an ISP path
         // fault and a plain outage: it is the slowest check there is, and on
         // a working link nothing depends on it.
         final path = await _probe.tracePath(kPathProbeHost);
-        sub('Route reached the Internet: ${_yesNo(path.reachedDestination)}');
+        sub(loc.logRouteReached(_yesNo(loc, path.reachedDestination)));
         if (!path.reachedDestination) {
-          return report(VerdictCatalog.ispPathProblem(path, medium: conn.kind));
+          return report(
+            VerdictCatalog.ispPathProblem(loc, path, medium: conn.kind),
+          );
         }
       }
       // On a cellular link there is no router/ISP line to blame: a dead data
@@ -165,18 +185,19 @@ class RunDiagnosis {
       if (conn.kind == ConnectivityKind.mobile) {
         return report(
           VerdictCatalog.mobileDataNoInternet(
+            loc,
             signalWeak: conn.mobileSignalWeak,
             signalGood: conn.mobileSignalGood,
           ),
         );
       }
-      return report(VerdictCatalog.noInternetIsp(medium: conn.kind));
+      return report(VerdictCatalog.noInternetIsp(loc, medium: conn.kind));
     }
 
     // Internet works at IP/HTTP level from here on.
-    sub('Name resolves ($kDnsProbeHost): ${_yesNo(dnsOk)}');
+    sub(loc.logNameResolves(kDnsProbeHost, _yesNo(loc, dnsOk)));
     if (!dnsOk) {
-      return report(VerdictCatalog.dnsProblem(medium: conn.kind));
+      return report(VerdictCatalog.dnsProblem(loc, medium: conn.kind));
     }
 
     // ── 4. Second wave: measurements, only now that the link is usable ────
@@ -205,50 +226,65 @@ class RunDiagnosis {
     ).wait;
     final linkQuality = quality.withLoadedRtt(speed.loadedRttMs);
 
-    head('Ports');
+    head(loc.logHeadPorts);
     for (final p in ports) {
       note(
-        'Port ${p.port}/${p.service}: '
-        '${p.reachable ? "open ✅" : "blocked ❌"}',
+        loc.logPortLine(
+          p.port,
+          p.service,
+          p.reachable ? loc.logPortOpen : loc.logPortBlocked,
+        ),
       );
     }
     final anyOpen = ports.any((p) => p.reachable);
     final blocked = ports.where((p) => !p.reachable).toList();
     if (anyOpen && blocked.isNotEmpty) {
       return report(
-        VerdictCatalog.portBlocked(blocked.first, medium: conn.kind),
+        VerdictCatalog.portBlocked(loc, blocked.first, medium: conn.kind),
       );
     }
 
     note(
-      'Route reached the Internet: ${_yesNo(path.reachedDestination)} '
-      '(last hop: ${path.lastRespondingHop ?? "n/a"})',
+      loc.logRouteReachedHop(
+        _yesNo(loc, path.reachedDestination),
+        path.lastRespondingHop ?? loc.logNotApplicable,
+      ),
     );
     if (!path.reachedDestination) {
-      return report(VerdictCatalog.ispPathProblem(path, medium: conn.kind));
+      return report(
+        VerdictCatalog.ispPathProblem(loc, path, medium: conn.kind),
+      );
     }
 
-    head('Popular sites');
-    note('Country: ${siteReport.country ?? "unknown"}');
+    head(loc.logHeadPopularSites);
+    note(loc.logPopularCountry(siteReport.country ?? loc.logUnknown));
     final sites = siteReport.sites;
     final reachable = sites.where((s) => s.reachable).length;
     final allSitesOk = sites.isNotEmpty && reachable == sites.length;
     note(
-      'Popular sites reachable: $reachable/${sites.length} '
-      '${allSitesOk ? "✅" : "⚠️"}',
+      loc.logPopularReachable(
+        reachable,
+        sites.length,
+        allSitesOk ? '✅' : '⚠️',
+      ),
     );
     if (sites.isNotEmpty && reachable == 0) {
       // Every real destination failed although the anycast checks passed —
       // treat as an ISP/WAN content-path outage rather than "all clear".
-      return report(VerdictCatalog.noInternetIsp(medium: conn.kind));
+      return report(VerdictCatalog.noInternetIsp(loc, medium: conn.kind));
     }
 
     // ── 5. Nothing is broken: judge what the connection can actually do ───
-    final capability = _assess(speed: speed, quality: linkQuality);
-    _noteQuality(note, head, conn, speed, linkQuality, capability);
-    _noteTests(note, head, _probe.dataUsage());
+    final capability = _assess(
+      speed: speed,
+      quality: linkQuality,
+      l10n: loc,
+    );
+    _noteQuality(loc, note, head, conn, speed, linkQuality, capability);
+    _noteTests(loc, note, head, _probe.dataUsage());
 
     final outcome = VerdictCatalog.capability(
+      loc,
       assessment: capability,
       medium: conn.kind,
       speed: speed,
@@ -267,6 +303,7 @@ class RunDiagnosis {
   /// Writes the measured figures into the technical log, saying which medium
   /// they came from and which activities they do or do not support.
   void _noteQuality(
+    AppLocalizations l10n,
     void Function(String) note,
     void Function(String) head,
     ConnectivityStatus conn,
@@ -274,43 +311,46 @@ class RunDiagnosis {
     LinkQuality quality,
     CapabilityAssessment capability,
   ) {
-    final medium = VerdictCatalog.mediumLabel(conn.kind);
-    head('Measurements');
-    note('Tested over: $medium');
+    final medium = VerdictCatalog.mediumLabel(l10n, conn.kind);
+    head(l10n.logHeadMeasurements);
+    note(l10n.logTestedOver(medium));
     if (conn.kind == ConnectivityKind.mobile) {
-      note(
-        'Mobile data was measured because it is the link in use '
-        '(Wi-Fi not connected, or you chose to retest over mobile)',
-      );
+      note(l10n.logMobileMeasuredReason);
       final level = conn.mobileSignalLevel;
       note(
-        'Cellular signal: '
-        '${level == null ? "not reported" : "$level of 4"}',
+        level == null
+            ? l10n.logCellularSignalMissing
+            : l10n.logCellularSignalReported(level),
       );
     }
     final down = speed.ok
-        ? '${speed.downloadMbps.toStringAsFixed(1)} Mbps'
-        : 'not measured';
+        ? l10n.logMbps(speed.downloadMbps.toStringAsFixed(1))
+        : l10n.logNotMeasured;
     final up = speed.uploadMbps == null
-        ? 'not measured'
-        : '${speed.uploadMbps!.toStringAsFixed(1)} Mbps';
-    note('Download: $down');
-    note('Upload: $up');
+        ? l10n.logNotMeasured
+        : l10n.logMbps(speed.uploadMbps!.toStringAsFixed(1));
+    note(l10n.logDownloadLine(down));
+    note(l10n.logUploadLine(up));
     // Printed next to the rates so the figures here and the totals in "Tests
     // performed" can be checked against each other.
     note(
-      'Moved by the speed test: '
-      'received ${DataUsage.formatBytes(speed.bytesReceived)}, '
-      'sent ${DataUsage.formatBytes(speed.bytesSent)}',
+      l10n.logSpeedTestMoved(
+        DataUsage.formatBytes(speed.bytesReceived),
+        DataUsage.formatBytes(speed.bytesSent),
+      ),
     );
-    _noteLatency(note, 'Router', quality.gateway);
-    _noteLatency(note, 'Internet', quality.internet);
+    _noteLatency(l10n, note, l10n.logLabelRouter, quality.gateway);
+    _noteLatency(l10n, note, l10n.logLabelInternet, quality.internet);
     final loaded = speed.loadedRttMs;
     if (loaded != null) {
       final ratio = quality.bufferbloatRatio;
       note(
-        'Response time while busy: ${loaded.round()} ms'
-        '${ratio == null ? "" : " (${ratio.toStringAsFixed(1)}x idle)"}',
+        ratio == null
+            ? l10n.logResponseWhileBusy(loaded.round())
+            : l10n.logResponseWhileBusyRatio(
+                loaded.round(),
+                ratio.toStringAsFixed(1),
+              ),
       );
     }
     // Two plain lists rather than one list of yes/no answers: a name under
@@ -318,17 +358,17 @@ class RunDiagnosis {
     // activities that do not.
     final supported = capability.supported;
     if (supported.isNotEmpty) {
-      head('Good for');
+      head(l10n.logHeadGoodFor);
       for (final outcome in supported) {
-        note(outcome.name);
+        note(l10n.useCaseName(outcome.id.name));
       }
     }
     final unsupported = capability.unsupported;
     if (unsupported.isNotEmpty) {
-      head('Not good enough for');
+      head(l10n.logHeadNotGoodFor);
       for (final outcome in unsupported) {
         final short = outcome.shortfalls.map((s) => s.text).join(', ');
-        note('${outcome.name} — $short');
+        note(l10n.logNotGoodForItem(l10n.useCaseName(outcome.id.name), short));
       }
     }
   }
@@ -337,54 +377,113 @@ class RunDiagnosis {
   /// affirmative one. Most answers here are good news when they are "yes", but
   /// a captive sign-in page is the opposite: finding one is the problem, so
   /// "no ❌" would tell the user their working connection had failed a check.
-  static String _yesNo(bool value, {bool goodWhenTrue = true}) =>
-      '${value ? "yes" : "no"} ${value == goodWhenTrue ? "✅" : "❌"}';
+  static String _yesNo(
+    AppLocalizations l10n,
+    bool value, {
+    bool goodWhenTrue = true,
+  }) =>
+      '${value ? l10n.logYes : l10n.logNo} '
+      '${value == goodWhenTrue ? "✅" : "❌"}';
 
   void _noteLatency(
+    AppLocalizations l10n,
     void Function(String) note,
     String label,
     LatencyStats stats,
   ) {
     if (!stats.ok) {
-      note('$label response time: no reply to ${stats.sent} probes');
+      note(l10n.logLatencyNoReply(label, stats.sent));
       return;
     }
     note(
-      '$label response time: ${stats.avgMs!.round()} ms avg '
-      '(min ${stats.minMs!.round()}, max ${stats.maxMs!.round()}), '
-      'jitter ${stats.jitterMs?.round() ?? "n/a"} ms, '
-      'loss ${stats.lossPercent!.round()}% '
-      '(${stats.received}/${stats.sent} replies)',
+      l10n.logLatencyLine(
+        label,
+        stats.avgMs!.round(),
+        stats.minMs!.round(),
+        stats.maxMs!.round(),
+        stats.jitterMs?.round().toString() ?? l10n.logNotApplicable,
+        stats.lossPercent!.round(),
+        stats.received,
+        stats.sent,
+      ),
     );
   }
 
   /// Lists exactly which tests ran and what they cost in data.
   void _noteTests(
+    AppLocalizations l10n,
     void Function(String) note,
     void Function(String) head,
     DataUsage usage,
   ) {
     if (usage.records.isEmpty) return;
-    head('Tests performed (${usage.records.length})');
+    head(l10n.logHeadTestsPerformed(usage.records.length));
     for (final r in usage.records) {
-      final traffic = _formatTraffic(r.bytesSent, r.bytesReceived);
-      note('${r.test} → ${r.target}${traffic.isEmpty ? "" : " ($traffic)"}');
+      final traffic = _formatTraffic(l10n, r.bytesSent, r.bytesReceived);
+      note(
+        l10n.logTestRecord(
+          _localizedTestName(l10n, r.test),
+          r.target,
+          traffic.isEmpty ? '' : ' ($traffic)',
+        ),
+      );
     }
-    final total = _formatTraffic(usage.bytesSent, usage.bytesReceived);
+    final total = _formatTraffic(l10n, usage.bytesSent, usage.bytesReceived);
     if (total.isNotEmpty) {
-      note('Total data used by this diagnosis: $total');
+      note(l10n.logTotalData(total));
       // Says what the total covers: it is the sum of every test above, so it
       // is legitimately larger than the speed test figures alone.
-      note('That total covers every test above, not only the speed test');
+      note(l10n.logTotalCovers);
     }
+  }
+
+  /// Localizes the probe label recorded by the data layer. `ProbeRecord.test`
+  /// is written in English there (it doubles as a stable key), so the
+  /// transparency list is translated here, at the point it is turned into a
+  /// log line, the same way every other line under this heading is. An
+  /// unrecognised label — currently just the per-port checks, whose text is
+  /// `Port 443/HTTPS` and already language-neutral — is passed through as-is.
+  static String _localizedTestName(AppLocalizations l10n, String test) {
+    switch (test) {
+      case 'DNS resolution':
+        return l10n.probeDnsResolution;
+      case 'Internet / captive-portal check':
+        return l10n.probeCaptivePortalCheck;
+      case 'Route to the Internet (traceroute)':
+        return l10n.probeRouteToInternet;
+      case 'Country detection':
+        return l10n.probeCountryDetection;
+      case 'Router latency':
+        return l10n.probeRouterLatency;
+      case 'Internet latency':
+        return l10n.probeInternetLatency;
+      case 'Response time while the line is busy':
+        return l10n.probeResponseWhileBusy;
+      case 'Download speed':
+        return l10n.probeDownloadSpeed;
+      case 'Upload speed':
+        return l10n.probeUploadSpeed;
+    }
+    final popular = RegExp(
+      r'^Popular sites reachability \((\d+)\)$',
+    ).firstMatch(test);
+    if (popular != null) {
+      return l10n.probePopularSitesReachability(int.parse(popular.group(1)!));
+    }
+    return test;
   }
 
   /// "sent 1.2 kB, received 3 kB", dropping either half when it is zero so
   /// tests that only send or only receive don't read as "received 0 B".
-  String _formatTraffic(int bytesSent, int bytesReceived) {
+  String _formatTraffic(
+    AppLocalizations l10n,
+    int bytesSent,
+    int bytesReceived,
+  ) {
     final parts = [
-      if (bytesSent > 0) 'sent ${DataUsage.formatBytes(bytesSent)}',
-      if (bytesReceived > 0) 'received ${DataUsage.formatBytes(bytesReceived)}',
+      if (bytesSent > 0) l10n.logTrafficSent(DataUsage.formatBytes(bytesSent)),
+      if (bytesReceived > 0)
+        l10n.logTrafficReceived(DataUsage.formatBytes(bytesReceived)),
     ];
     return parts.join(', ');
   }

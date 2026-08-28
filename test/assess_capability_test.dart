@@ -5,6 +5,9 @@ import 'package:simply_internet/features/diagnostics/domain/entities/network_fac
 import 'package:simply_internet/features/diagnostics/domain/entities/verdict.dart';
 import 'package:simply_internet/features/diagnostics/domain/entities/verdict_catalog.dart';
 import 'package:simply_internet/features/diagnostics/domain/usecases/assess_capability.dart';
+import 'package:simply_internet/l10n/app_localizations_en.dart';
+
+final en = AppLocalizationsEn();
 
 LinkQuality _quality({
   required List<double> internetRtts,
@@ -82,6 +85,7 @@ void main() {
       );
       expect(result.voiceCallStillFits, isTrue);
       final verdict = VerdictCatalog.capability(
+        en,
         assessment: result,
         medium: ConnectivityKind.wifi,
         speed: const SpeedResult(downloadMbps: 3, ok: true, uploadMbps: 0.6),
@@ -136,6 +140,7 @@ void main() {
     test('case A states the medium and needs no remedy', () {
       final assessment = assess(speed: good, quality: cleanQuality);
       final out = VerdictCatalog.capability(
+        en,
         assessment: assessment,
         medium: ConnectivityKind.wifi,
         speed: good,
@@ -156,6 +161,7 @@ void main() {
       );
       final assessment = assess(speed: speed, quality: quality);
       final out = VerdictCatalog.capability(
+        en,
         assessment: assessment,
         medium: ConnectivityKind.wifi,
         speed: speed,
@@ -171,15 +177,18 @@ void main() {
       final quality = _quality(internetRtts: const [400, 900, 420]);
       final assessment = assess(speed: speed, quality: quality);
       final out = VerdictCatalog.capability(
+        en,
         assessment: assessment,
         medium: ConnectivityKind.mobile,
         speed: speed,
         quality: quality,
       );
       expect(out.verdict.detail, contains('not assessed'));
-      // Only the metrics that failed the criteria are spelled out.
-      expect(out.verdict.detail, contains('packet loss'));
+      // Measured shortfall figures stay out of the verdict now — they live in
+      // the capability list and the technical log. The detail names the cause,
+      // not the numbers.
       expect(out.verdict.detail, isNot(contains('download 1.0 Mbps')));
+      expect(out.verdict.detail, isNot(contains('latency ')));
       expect(out.verdict.title, contains('mobile data'));
     });
   });
